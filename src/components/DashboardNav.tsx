@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
-type Item = { href: string; label: string; icon: keyof typeof icons };
+type Item = { href: string; label: string; icon: keyof typeof icons; ownerOnly?: boolean };
 
 const icons = {
   grid: (
@@ -36,6 +36,9 @@ const icons = {
   route: (
     <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><circle cx="6" cy="6" r="2.5" stroke="currentColor" strokeWidth="1.7"/><circle cx="18" cy="18" r="2.5" stroke="currentColor" strokeWidth="1.7"/><path d="M8.5 6H14a4 4 0 0 1 0 8H9a3 3 0 0 0 0 6h6.5" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round"/></svg>
   ),
+  shield: (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M12 3.5 19 6v6c0 4.3-2.9 7.4-7 8.5-4.1-1.1-7-4.2-7-8.5V6l7-2.5Z" stroke="currentColor" strokeWidth="1.7" strokeLinejoin="round"/><path d="m9 12 2 2 4-4" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"/></svg>
+  ),
   settings: (
     <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="3" stroke="currentColor" strokeWidth="1.7"/><path d="M19 12a7 7 0 0 0-.1-1.2l2-1.5-2-3.4-2.3.9a7 7 0 0 0-2-1.2L14.2 3h-4l-.4 2.6a7 7 0 0 0-2 1.2l-2.3-.9-2 3.4 2 1.5A7 7 0 0 0 5 12c0 .4 0 .8.1 1.2l-2 1.5 2 3.4 2.3-.9a7 7 0 0 0 2 1.2l.4 2.6h4l.4-2.6a7 7 0 0 0 2-1.2l2.3.9 2-3.4-2-1.5c.1-.4.1-.8.1-1.2Z" stroke="currentColor" strokeWidth="1.4"/></svg>
   ),
@@ -64,13 +67,14 @@ const groups: { title: string; items: Item[] }[] = [
   {
     title: "Admin",
     items: [
+      { href: "/dashboard/admin", label: "Admin console", icon: "shield", ownerOnly: true },
       { href: "/dashboard/api-keys", label: "API keys", icon: "key" },
       { href: "/dashboard/settings", label: "Settings", icon: "settings" },
     ],
   },
 ];
 
-export function DashboardNav() {
+export function DashboardNav({ isOwner = false }: { isOwner?: boolean }) {
   const pathname = usePathname();
   return (
     <nav className="space-y-5">
@@ -78,7 +82,7 @@ export function DashboardNav() {
         <div key={g.title}>
           <p className="px-3 pb-1.5 text-[10.5px] font-bold uppercase tracking-[0.14em] text-muted/70">{g.title}</p>
           <div className="space-y-0.5">
-            {g.items.map((item) => {
+            {g.items.filter((item) => !item.ownerOnly || isOwner).map((item) => {
               const active = item.href === "/dashboard" ? pathname === "/dashboard" : pathname.startsWith(item.href);
               return (
                 <Link

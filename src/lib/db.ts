@@ -349,6 +349,42 @@ function init(): DatabaseSync {
   addTableCol("routing_forms", "branch_rules", "branch_rules TEXT NOT NULL DEFAULT '[]'");
   addTableCol("routing_submissions", "routed_event_type_id", "routed_event_type_id TEXT");
 
+  addTableCol("users", "role", "role TEXT NOT NULL DEFAULT 'owner'");
+  db.exec("UPDATE users SET role = 'member' WHERE role = 'owner' AND id IN (SELECT member_id FROM team_members) AND id NOT IN (SELECT owner_id FROM team_members)");
+  addTableCol("team_members", "role", "role TEXT NOT NULL DEFAULT 'member'");
+  addTableCol("team_members", "status", "status TEXT NOT NULL DEFAULT 'active'");
+  addTableCol("team_members", "invited_at", "invited_at TEXT");
+  addTableCol("team_members", "joined_at", "joined_at TEXT");
+
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS audit_log (
+      id TEXT PRIMARY KEY,
+      owner_id TEXT NOT NULL,
+      actor_id TEXT NOT NULL,
+      action TEXT NOT NULL,
+      entity TEXT NOT NULL DEFAULT '',
+      entity_id TEXT NOT NULL DEFAULT '',
+      meta TEXT NOT NULL DEFAULT '{}',
+      created_at TEXT NOT NULL
+    );
+    CREATE INDEX IF NOT EXISTS idx_audit_owner ON audit_log(owner_id, created_at);
+    CREATE TABLE IF NOT EXISTS invoices (
+      id TEXT PRIMARY KEY,
+      owner_id TEXT NOT NULL,
+      number TEXT NOT NULL,
+      plan TEXT NOT NULL,
+      seats INTEGER NOT NULL DEFAULT 1,
+      amount_cents INTEGER NOT NULL DEFAULT 0,
+      currency TEXT NOT NULL DEFAULT 'USD',
+      status TEXT NOT NULL DEFAULT 'open',
+      period_start TEXT NOT NULL,
+      period_end TEXT NOT NULL,
+      stripe_id TEXT,
+      created_at TEXT NOT NULL
+    );
+    CREATE INDEX IF NOT EXISTS idx_invoices_owner ON invoices(owner_id, created_at);
+  `);
+
   try {
     seed(db);
     ensureDemoTeam(db);

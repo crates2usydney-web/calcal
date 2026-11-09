@@ -4,11 +4,14 @@ import { Logo } from "@/components/Logo";
 import { DashboardNav } from "@/components/DashboardNav";
 import { CopyButton } from "@/components/CopyButton";
 import { getCurrentUser } from "@/lib/auth";
+import { db } from "@/lib/db";
 import { logoutAction } from "@/lib/actions";
 
 export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
   const user = await getCurrentUser();
   if (!user) redirect("/login");
+  const roleRow = db.prepare("SELECT role FROM users WHERE id = ?").get(user.id) as { role: string } | undefined;
+  const isOwner = (roleRow?.role || "owner") === "owner";
 
   const initials = user.name.split(" ").map((p) => p[0]).slice(0, 2).join("");
 
@@ -31,6 +34,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
                   ["Emails", "/dashboard/emails"],
                   ["Integrations", "/dashboard/integrations"],
                   ["Webhooks", "/dashboard/webhooks"],
+                  ...(isOwner ? [["Admin console", "/dashboard/admin"]] : []),
                   ["API keys", "/dashboard/api-keys"],
                   ["Settings", "/dashboard/settings"],
                 ].map(([label, href]) => (
@@ -68,7 +72,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
           <Link href="/dashboard/event-types/new" className="mb-5 flex w-full items-center justify-center gap-1.5 rounded-lg bg-brand py-2.5 text-[13.5px] font-semibold text-white hover:bg-brand-dark">
             <span className="text-[16px] leading-none">+</span> Create
           </Link>
-          <DashboardNav />
+          <DashboardNav isOwner={isOwner} />
           <div className="mt-6 rounded-xl border border-line bg-cloud p-3.5">
             <p className="text-[10.5px] font-bold uppercase tracking-[0.12em] text-muted">Your page</p>
             <p className="mt-1 truncate text-[12.5px] font-medium text-brand">calcal.app/{user.username}</p>
