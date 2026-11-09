@@ -50,9 +50,35 @@ static void evKeyFlags(CGKeyCode code, CGEventFlags flags) {
   CGEventPost(kCGHIDEventTap, u); CFRelease(u);
 }
 static void evKey(CGKeyCode code) { evKeyFlags(code, 0); }
+
+static void setWindowBounds(pid_t pid, double x, double y, double w, double h) {
+  AXUIElementRef app = AXUIElementCreateApplication(pid);
+  CFTypeRef wins = NULL;
+  if (AXUIElementCopyAttributeValue(app, kAXWindowsAttribute, &wins) != kAXErrorSuccess || !wins) {
+    printf("no windows\n"); CFRelease(app); return;
+  }
+  CFArrayRef arr = (CFArrayRef)wins;
+  CFIndex count = CFArrayGetCount(arr);
+  CGPoint pos = CGPointMake(x, y);
+  CGSize size = CGSizeMake(w, h);
+  for (CFIndex i = 0; i < count; i++) {
+    AXUIElementRef win = (AXUIElementRef)CFArrayGetValueAtIndex(arr, i);
+    AXValueRef pv = AXValueCreate(kAXValueCGPointType, &pos);
+    AXValueRef sv = AXValueCreate(kAXValueCGSizeType, &size);
+    AXUIElementSetAttributeValue(win, kAXPositionAttribute, pv);
+    AXUIElementSetAttributeValue(win, kAXSizeAttribute, sv);
+    CFRelease(pv); CFRelease(sv);
+  }
+  printf("resized %ld windows\n", (long)count);
+  CFRelease(wins);
+  CFRelease(app);
+}
+
 int main(int argc, char **argv) {
-  if (argc < 2) { printf("usage: front <pid> | click x y | scroll x y dy | move x y | type text | key <code>\n"); return 2; }
-  if (!strcmp(argv[1], "front") && argc == 3) {
+  if (argc < 2) { printf("usage: front <pid> | bounds <pid> x y w h | click x y | scroll x y dy | move x y | type text | key <code>\n"); return 2; }
+  if (!strcmp(argv[1], "bounds") && argc == 7) {
+    setWindowBounds((pid_t)atoi(argv[2]), atof(argv[3]), atof(argv[4]), atof(argv[5]), atof(argv[6]));
+  } else if (!strcmp(argv[1], "front") && argc == 3) {
     AXUIElementRef app = AXUIElementCreateApplication(atoi(argv[2]));
     AXUIElementSetAttributeValue(app, CFSTR("AXFrontmost"), kCFBooleanTrue);
     CFRelease(app);
