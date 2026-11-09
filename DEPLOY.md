@@ -94,3 +94,12 @@ Expected health: {"ok":true,"db":true,"users":N,"version":"1.0.0"}.
 - OAuth redirect_uri_mismatch: the URI must match exactly, including https and no trailing slash.
 - Google "invalid_client" on localhost: expected — use the deployed https domain.
 - Emails not arriving: RESEND_API_KEY and verified domain are required; check /dashboard/emails outbox.
+## Current deployment
+
+- URL: https://calcal-yzv8.onrender.com
+- Provider: Render, Docker runtime, Free instance, Oregon
+- Repo: https://github.com/crates2usydney-web/calcal (public, main)
+- Env: APP_URL, APP_SECRET, DATABASE_PATH=/tmp/calcal.db, CRON_SECRET, MAIL_FROM
+- Health: https://calcal-yzv8.onrender.com/api/health
+
+Upgrade path: Starter instance + 1GB disk mounted at /app/data + DATABASE_PATH=/app/data/app.db, then add the reminder cron.

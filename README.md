@@ -265,3 +265,8 @@ Local production smoke test: npm run build && npm run start:standalone (serves .
 See [DEPLOY.md](DEPLOY.md) for the full Render/Fly/Docker runbook.
 
 Docker image verified locally: build succeeds, container reports healthy, /api/health, /pricing, /docs/api and static assets return 200, and SQLite persists across restarts on the mounted volume.
+## Live demo
+
+https://calcal-yzv8.onrender.com (Render, Docker, free instance).
+
+Free instance notes: sleeps after inactivity (~50s cold start), SQLite lives at /tmp/calcal.db so data resets on deploy/restart, no persistent disk or cron. Upgrade to Starter + disk + cron for production use (see DEPLOY.md).
