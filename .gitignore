@@ -9,3 +9,4 @@ recordings
 .npmcache
 .DS_Store
 *.log
+.local-backup/
