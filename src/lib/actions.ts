@@ -506,6 +506,9 @@ export async function updateSettingsAction(fd: FormData) {
 
 export async function createPollAction(fd: FormData) {
   const user = await requireUser();
+  const eventTypeId = str(fd, "event_type_id");
+  const ev = db.prepare("SELECT id FROM event_types WHERE id = ? AND user_id = ?").get(eventTypeId, user.id);
+  if (!ev) redirect("/dashboard/polls?error=event");
   const title = str(fd, "title") || "Meeting poll";
   const description = str(fd, "description");
   const duration = Math.max(5, Math.min(240, Number(str(fd, "duration", "30")) || 30));
@@ -519,13 +522,69 @@ export async function createPollAction(fd: FormData) {
   if (options.length < 2) redirect("/dashboard/polls?error=options");
   const id = randomUUID();
   const token = randomUUID().replace(/-/g, "").slice(0, 20);
-  db.prepare("INSERT INTO polls (id, user_id, token, title, description, duration, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)").run(
-    id, user.id, token, title, description, duration, new Date().toISOString()
+  db.prepare("INSERT INTO polls (id, user_id, token, title, description, duration, created_at, event_type_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?)").run(
+    id, user.id, token, title, description, duration, new Date().toISOString(), eventTypeId
   );
   const ins = db.prepare("INSERT INTO poll_options (id, poll_id, start_utc, position) VALUES (?, ?, ?, ?)");
   options.forEach((iso, i) => ins.run(randomUUID(), id, iso, i));
   revalidatePath("/dashboard/polls");
   redirect("/dashboard/polls?created=" + token);
+}
+
+export async function bookPollWinnerAction(fd: FormData) {
+  const user = await requireUser();
+  const pollId = str(fd, "poll_id");
+  const requested = str(fd, "option_id");
+  const poll = db.prepare("SELECT * FROM polls WHERE id = ? AND user_id = ?").get(pollId, user.id) as
+    | { id: string; token: string; title: string; duration: number; event_type_id: string | null; booked_booking_id: string | null }
+    | undefined;
+  if (!poll) redirect("/dashboard/polls");
+  if (poll.booked_booking_id) redirect("/booking/" + poll.booked_booking_id);
+
+  const options = db
+    .prepare("SELECT o.id, o.start_utc, (SELECT COUNT(*) FROM poll_votes v WHERE v.option_id = o.id) AS votes FROM poll_options o WHERE o.poll_id = ? ORDER BY o.position, o.start_utc")
+    .all(poll.id) as { id: string; start_utc: string; votes: number }[];
+  if (!options.length) redirect("/dashboard/polls/" + poll.id + "?error=nooptions");
+
+  const winner = requested ? options.find((o) => o.id === requested) : options.slice().sort((a, b) => b.votes - a.votes || a.start_utc.localeCompare(b.start_utc))[0];
+  if (!winner) redirect("/dashboard/polls/" + poll.id + "?error=nooptions");
+
+  const eventTypeId = poll.event_type_id ?? (db.prepare("SELECT id FROM event_types WHERE user_id = ? ORDER BY created_at LIMIT 1").get(user.id) as { id: string } | undefined)?.id;
+  const et = eventTypeId
+    ? (db.prepare("SELECT e.*, u.timezone, u.username FROM event_types e JOIN users u ON u.id = e.user_id WHERE e.id = ?").get(eventTypeId) as
+        | { id: string; user_id: string; title: string; slug: string; duration: number; timezone: string; username: string; assignment: string }
+        | undefined)
+    : undefined;
+  if (!et) redirect("/dashboard/polls/" + poll.id + "?error=event");
+
+  const startISO = winner.start_utc;
+  const dayISO = new Date(startISO).toLocaleDateString("en-CA", { timeZone: et.timezone });
+  const hosts = getEventHosts(et.id, et.user_id, et.assignment);
+  const slot = unionSlotsForDay({ hosts, dayISO, duration: et.duration, displayTz: et.timezone }).find((s) => s.startISO === startISO);
+  if (!slot) redirect("/dashboard/polls/" + poll.id + "?error=slot");
+  const hostId = pickHostForSlot(slot.hostIds, startISO, et.duration);
+  if (!hostId) redirect("/dashboard/polls/" + poll.id + "?error=slot");
+
+  const voter = db
+    .prepare("SELECT name, email FROM poll_votes WHERE poll_id = ? AND option_id = ? ORDER BY created_at DESC LIMIT 1")
+    .get(poll.id, winner.id) as { name: string; email: string } | undefined;
+  const inviteeName = voter?.name || user.name;
+  const inviteeEmail = voter?.email || user.email;
+
+  const bookingId = randomUUID();
+  const endISO = new Date(new Date(startISO).getTime() + et.duration * 60_000).toISOString();
+  db.prepare(
+    "INSERT INTO bookings (id, event_type_id, host_id, invitee_name, invitee_email, notes, start_utc, end_utc, status, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'confirmed', ?)"
+  ).run(bookingId, et.id, hostId, inviteeName, inviteeEmail, "Booked from poll: " + poll.title, startISO, endISO, new Date().toISOString());
+  db.prepare("UPDATE polls SET booked_option_id = ?, booked_booking_id = ? WHERE id = ?").run(winner.id, bookingId, poll.id);
+
+  await sendBookingNotifications(bookingId);
+  await deliverDueEmails();
+  const evt = bookingEventPayload(bookingId);
+  if (evt) await emitEvent(evt.ownerId, "booking.created", evt.payload);
+  revalidatePath("/dashboard/polls");
+  revalidatePath("/dashboard/bookings");
+  redirect("/booking/" + bookingId);
 }
 
 export async function deletePollAction(fd: FormData) {
@@ -558,16 +617,41 @@ export async function createRoutingFormAction(fd: FormData) {
   const eventTypeId = str(fd, "event_type_id");
   const ev = db.prepare("SELECT id FROM event_types WHERE id = ? AND user_id = ?").get(eventTypeId, user.id);
   if (!ev) redirect("/dashboard/routing?error=event");
-  let questions: { key: string; label: string }[] = [];
+
+  type Q = { key: string; label: string; type: "text" | "select"; options: string[] };
+  let questions: Q[] = [];
   try {
     const parsed = JSON.parse(str(fd, "questions", "[]"));
-    if (Array.isArray(parsed)) questions = parsed.filter((q) => q && typeof q.label === "string").map((q, i) => ({ key: "q" + i, label: String(q.label) }));
+    if (Array.isArray(parsed)) {
+      questions = parsed
+        .filter((q) => q && typeof q.label === "string" && q.label.trim())
+        .map((q, i) => ({
+          key: "q" + i,
+          label: String(q.label),
+          type: q.type === "select" ? "select" : "text",
+          options: Array.isArray(q.options) ? q.options.filter((o: unknown): o is string => typeof o === "string" && o.trim() !== "") : [],
+        }));
+    }
   } catch {
     questions = [];
   }
+
+  const ownedIds = new Set((db.prepare("SELECT id FROM event_types WHERE user_id = ?").all(user.id) as { id: string }[]).map((r) => r.id));
+  let branches: { question: string; value: string; event_type_id: string }[] = [];
+  try {
+    const parsed = JSON.parse(str(fd, "branch_rules", "[]"));
+    if (Array.isArray(parsed)) {
+      branches = parsed
+        .filter((b) => b && typeof b.value === "string" && b.value.trim() && ownedIds.has(String(b.event_type_id)))
+        .map((b) => ({ question: String(b.question), value: String(b.value), event_type_id: String(b.event_type_id) }));
+    }
+  } catch {
+    branches = [];
+  }
+
   const token = randomUUID().replace(/-/g, "").slice(0, 20);
-  db.prepare("INSERT INTO routing_forms (id, user_id, token, title, description, event_type_id, questions, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)").run(
-    randomUUID(), user.id, token, title, description, eventTypeId, JSON.stringify(questions), new Date().toISOString()
+  db.prepare("INSERT INTO routing_forms (id, user_id, token, title, description, event_type_id, questions, branch_rules, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)").run(
+    randomUUID(), user.id, token, title, description, eventTypeId, JSON.stringify(questions), JSON.stringify(branches), new Date().toISOString()
   );
   revalidatePath("/dashboard/routing");
   redirect("/dashboard/routing?created=" + token);
@@ -585,22 +669,39 @@ export async function submitRoutingFormAction(fd: FormData) {
   const name = str(fd, "name");
   const email = str(fd, "email");
   const form = db
-    .prepare("SELECT f.id, f.questions, f.event_type_id, u.username, e.slug FROM routing_forms f JOIN users u ON u.id = f.user_id JOIN event_types e ON e.id = f.event_type_id WHERE f.token = ?")
-    .get(token) as { id: string; questions: string; event_type_id: string; username: string; slug: string } | undefined;
+    .prepare("SELECT f.id, f.questions, f.branch_rules, f.event_type_id, f.user_id, u.username, e.slug FROM routing_forms f JOIN users u ON u.id = f.user_id JOIN event_types e ON e.id = f.event_type_id WHERE f.token = ?")
+    .get(token) as { id: string; questions: string; branch_rules: string; event_type_id: string; user_id: string; username: string; slug: string } | undefined;
   if (!form) redirect("/");
   if (!name || !email) redirect("/r/" + token + "?error=missing");
+
+  let questions: { key: string; label: string; type: string; options: string[] }[] = [];
+  try { questions = JSON.parse(form.questions || "[]"); } catch { questions = []; }
+
   const answers: Record<string, string> = {};
-  let questions: { key: string; label: string }[] = [];
-  try {
-    questions = JSON.parse(form.questions || "[]");
-  } catch {
-    questions = [];
-  }
   for (const q of questions) answers[q.label] = str(fd, q.key);
-  db.prepare("INSERT INTO routing_submissions (id, form_id, name, email, answers, created_at) VALUES (?, ?, ?, ?, ?, ?)").run(
-    randomUUID(), form.id, name, email, JSON.stringify(answers), new Date().toISOString()
+
+  let routedEventId = form.event_type_id;
+  try {
+    const branches = JSON.parse(form.branch_rules || "[]") as { question: string; value: string; event_type_id: string }[];
+    const match = branches.find((b) => {
+      const q = questions.find((x) => x.key === b.question || x.label === b.question);
+      const answer = q ? answers[q.label] : "";
+      return answer && answer.trim().toLowerCase() === b.value.trim().toLowerCase();
+    });
+    if (match) routedEventId = match.event_type_id;
+  } catch {
+    routedEventId = form.event_type_id;
+  }
+
+  const routed = db
+    .prepare("SELECT e.slug, u.username FROM event_types e JOIN users u ON u.id = e.user_id WHERE e.id = ? AND e.user_id = ?")
+    .get(routedEventId, form.user_id) as { slug: string; username: string } | undefined;
+  const target = routed ?? { slug: form.slug, username: form.username };
+
+  db.prepare("INSERT INTO routing_submissions (id, form_id, name, email, answers, routed_event_type_id, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)").run(
+    randomUUID(), form.id, name, email, JSON.stringify(answers), routedEventId, new Date().toISOString()
   );
   const note = Object.entries(answers).filter(([, v]) => v).map(([k, v]) => k + ": " + v).join("\n");
   const qs = new URLSearchParams({ name, email, notes: note });
-  redirect("/" + form.username + "/" + form.slug + "?" + qs.toString());
+  redirect("/" + target.username + "/" + target.slug + "?" + qs.toString());
 }

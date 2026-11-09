@@ -16,8 +16,9 @@ export default async function PollPage({
   const { token } = await params;
   const sp = await searchParams;
   const poll = db
-    .prepare("SELECT p.id, p.title, p.description, p.duration, p.created_at, u.name AS host_name, u.timezone FROM polls p JOIN users u ON u.id = p.user_id WHERE p.token = ?")
-    .get(token) as { id: string; title: string; description: string; duration: number; created_at: string; host_name: string; timezone: string } | undefined;
+    .prepare("SELECT p.id, p.title, p.description, p.duration, p.created_at, p.booked_booking_id, p.booked_option_id, u.name AS host_name, u.timezone FROM polls p JOIN users u ON u.id = p.user_id WHERE p.token = ?")
+    .get(token) as { id: string; title: string; description: string; duration: number; created_at: string; booked_booking_id: string | null; booked_option_id: string | null;
+    host_name: string; timezone: string } | undefined;
   if (!poll) notFound();
 
   const options = db
@@ -52,7 +53,12 @@ export default async function PollPage({
           </p>
           {poll.description && <p className="mt-3 text-[13.5px] leading-relaxed text-muted">{poll.description}</p>}
 
-          {voted ? (
+          {poll.booked_booking_id ? (
+            <div className="mt-8 rounded-xl border border-green-200 bg-green-50 px-4 py-4 text-[13.5px] text-green-800">
+              <p className="font-semibold">This poll has been scheduled.</p>
+              <p className="mt-1">The host booked a final time{poll.booked_option_id ? " from the options below" : ""}. Thanks for voting!</p>
+            </div>
+          ) : voted ? (
             <div className="mt-8">
               <div className="rounded-xl border border-green-200 bg-green-50 px-4 py-3 text-[13.5px] text-green-800">
                 Thanks — your availability was recorded. {totalVoters} {totalVoters === 1 ? "person has" : "people have"} responded.

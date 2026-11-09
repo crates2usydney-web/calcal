@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { getCurrentUser } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { WEBHOOK_EVENTS } from "@/lib/integrations/engine";
@@ -55,13 +56,16 @@ export default async function WebhooksPage({ searchParams }: { searchParams: Pro
             <div key={ep.id} className="rounded-xl border border-line bg-white p-4">
               <div className="flex flex-wrap items-start justify-between gap-3">
                 <div className="min-w-0">
-                  <p className="truncate font-mono text-[13px] font-medium">{ep.url}</p>
+                  <Link href={"/dashboard/webhooks/" + ep.id} className="truncate font-mono text-[13px] font-medium hover:text-brand">{ep.url}</Link>
                   <p className="mt-1 text-[11.5px] text-muted">{events.join(", ")}</p>
                 </div>
-                <form action={deleteWebhookAction}>
-                  <input type="hidden" name="id" value={ep.id} />
-                  <button className="rounded-lg border border-line px-3 py-1.5 text-[11.5px] font-medium text-muted hover:border-red-200 hover:text-red-600">Delete</button>
-                </form>
+                <div className="flex items-center gap-2">
+                  <Link href={"/dashboard/webhooks/" + ep.id} className="btn btn-outline">Details</Link>
+                  <form action={deleteWebhookAction}>
+                    <input type="hidden" name="id" value={ep.id} />
+                    <button className="rounded-full border border-line px-3.5 py-1.5 text-[11.5px] font-medium text-muted hover:border-red-200 hover:text-red-600">Delete</button>
+                  </form>
+                </div>
               </div>
               <p className="mt-3 break-all rounded-lg bg-mist/60 px-3 py-2 font-mono text-[11px] text-navy/70">
                 secret: {ep.secret}

@@ -51,7 +51,7 @@ const cards = [
 
 export default function Home() {
   return (
-    <div className="bg-white">
+    <div className="overflow-x-clip bg-white">
       <SiteNav />
 
       <section className="hero-glow">
@@ -61,7 +61,7 @@ export default function Home() {
               <span className="flex h-4 w-4 items-center justify-center rounded-full bg-brand text-[9px] text-white">✦</span>
               New · AI scheduling assistant
             </div>
-            <h1 className="mt-6 text-[44px] font-semibold leading-[1.03] tracking-[-0.035em] text-ink sm:text-[56px] md:text-[68px]">
+            <h1 className="mt-6 text-[34px] font-semibold leading-[1.05] tracking-[-0.03em] text-ink sm:text-[48px] md:text-[68px]">
               Meetings, handled.
             </h1>
             <p className="mx-auto mt-5 max-w-[560px] text-[16px] leading-relaxed text-muted md:text-[18px]">

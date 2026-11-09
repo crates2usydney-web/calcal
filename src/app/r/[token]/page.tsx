@@ -20,7 +20,7 @@ export default async function RoutingFormPage({
     .get(token) as { id: string; title: string; description: string; questions: string; host_name: string } | undefined;
   if (!form) notFound();
 
-  let questions: { key: string; label: string }[] = [];
+  let questions: { key: string; label: string; type?: string; options?: string[] }[] = [];
   try { questions = JSON.parse(form.questions || "[]"); } catch { questions = []; }
 
   return (
@@ -55,7 +55,14 @@ export default async function RoutingFormPage({
             {questions.map((q) => (
               <div key={q.key}>
                 <label className="label">{q.label}</label>
-                <input name={q.key} className="input" />
+                {q.type === "select" && q.options && q.options.length ? (
+                  <select name={q.key} className="input" defaultValue="">
+                    <option value="" disabled>Select an option</option>
+                    {q.options.map((o) => <option key={o} value={o}>{o}</option>)}
+                  </select>
+                ) : (
+                  <input name={q.key} className="input" />
+                )}
               </div>
             ))}
           </div>

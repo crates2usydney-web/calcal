@@ -334,6 +334,21 @@ function init(): DatabaseSync {
   addBCol("stripe_session_id", "stripe_session_id TEXT");
   addBCol("amount_cents", "amount_cents INTEGER NOT NULL DEFAULT 0");
   addBCol("paid_at", "paid_at TEXT");
+  const addTableCol = (table: string, name: string, ddl: string) => {
+    const cols = db.prepare("PRAGMA table_info(" + table + ")").all() as { name: string }[];
+    if (cols.some((c) => c.name === name)) return;
+    try {
+      db.exec("ALTER TABLE " + table + " ADD COLUMN " + ddl);
+    } catch (err) {
+      if (!String(err).toLowerCase().includes("duplicate column")) throw err;
+    }
+  };
+  addTableCol("polls", "event_type_id", "event_type_id TEXT");
+  addTableCol("polls", "booked_option_id", "booked_option_id TEXT");
+  addTableCol("polls", "booked_booking_id", "booked_booking_id TEXT");
+  addTableCol("routing_forms", "branch_rules", "branch_rules TEXT NOT NULL DEFAULT '[]'");
+  addTableCol("routing_submissions", "routed_event_type_id", "routed_event_type_id TEXT");
+
   try {
     seed(db);
     ensureDemoTeam(db);

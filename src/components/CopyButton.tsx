@@ -2,14 +2,14 @@
 
 import { useState } from "react";
 
-export function CopyButton({ path, label = "Copy link" }: { path: string; label?: string }) {
+export function CopyButton({ path, text, label = "Copy link" }: { path?: string; text?: string; label?: string }) {
   const [copied, setCopied] = useState(false);
   return (
     <button
       type="button"
       onClick={async () => {
         try {
-          await navigator.clipboard.writeText(window.location.origin + path);
+          await navigator.clipboard.writeText(text ?? window.location.origin + (path ?? ""));
           setCopied(true);
           setTimeout(() => setCopied(false), 1600);
         } catch {

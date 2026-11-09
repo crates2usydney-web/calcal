@@ -92,7 +92,7 @@ export default async function IntegrationsPage({
                     {i.name.slice(0, 1)}
                   </span>
                   <div>
-                    <p className="text-[13.5px] font-semibold leading-tight">{i.name}</p>
+                    <Link href={"/dashboard/integrations/" + i.id} className="text-[13.5px] font-semibold leading-tight hover:text-brand">{i.name}</Link>
                     <p className="text-[11px] text-muted">{i.category}</p>
                   </div>
                 </div>
@@ -100,7 +100,7 @@ export default async function IntegrationsPage({
               </div>
               <p className="mt-2 flex-1 text-[12px] leading-relaxed text-muted">{i.description}</p>
               <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
-                <span className="rounded bg-gray-100 px-1.5 py-0.5 text-[10.5px] text-gray-600">{AUTH_LABEL[i.auth]}</span>
+                <div className="flex items-center gap-2"><span className="rounded bg-gray-100 px-1.5 py-0.5 text-[10.5px] text-gray-600">{AUTH_LABEL[i.auth]}</span><Link href={"/dashboard/integrations/" + i.id} className="text-[11.5px] font-medium text-brand hover:underline">Details</Link></div>
                 {i.id === "google-calendar" ? (
                   gStatus.connected ? (
                     <div className="flex flex-wrap items-center gap-2">

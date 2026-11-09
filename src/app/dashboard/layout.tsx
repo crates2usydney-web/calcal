@@ -16,8 +16,28 @@ export default async function DashboardLayout({ children }: { children: React.Re
     <div className="min-h-screen bg-[#f7f9fc]">
       <header className="sticky top-0 z-40 border-b border-line bg-white">
         <div className="flex h-16 items-center justify-between gap-4 px-4 md:px-6">
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-3">
             <Logo size={24} />
+            <details className="relative md:hidden">
+              <summary className="list-none rounded-full border border-line px-3 py-2 text-[12px] font-medium text-ink">Menu</summary>
+              <div className="absolute left-0 top-[calc(100%+8px)] z-50 w-[220px] rounded-xl border border-line bg-white p-2 shadow-float">
+                {[
+                  ["Event types", "/dashboard"],
+                  ["Availability", "/dashboard/availability"],
+                  ["Bookings", "/dashboard/bookings"],
+                  ["Meeting polls", "/dashboard/polls"],
+                  ["Routing forms", "/dashboard/routing"],
+                  ["Team", "/dashboard/team"],
+                  ["Emails", "/dashboard/emails"],
+                  ["Integrations", "/dashboard/integrations"],
+                  ["Webhooks", "/dashboard/webhooks"],
+                  ["API keys", "/dashboard/api-keys"],
+                  ["Settings", "/dashboard/settings"],
+                ].map(([label, href]) => (
+                  <Link key={href} href={href} className="block rounded-lg px-3 py-2 text-[13px] font-medium text-ink hover:bg-cloud">{label}</Link>
+                ))}
+              </div>
+            </details>
             <div className="hidden items-center gap-2 md:flex">
               <span className="flex h-7 w-7 items-center justify-center rounded-md bg-ink text-[10.5px] font-semibold text-white">{initials}</span>
               <span className="text-[13.5px] font-semibold text-ink">{user.name}</span>
@@ -29,7 +49,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
           </div>
 
           <div className="flex items-center gap-2">
-            <Link href={"/" + user.username} className="hidden rounded-full border border-line px-3.5 py-2 text-[12.5px] font-medium text-ink hover:border-ink/30 sm:inline">
+            <Link href={"/" + user.username} className="hidden rounded-full border border-line px-3.5 py-2 text-[12.5px] font-medium text-ink hover:border-ink/30 lg:inline">
               View booking page
             </Link>
             <CopyButton path={"/" + user.username} label="Copy link" />

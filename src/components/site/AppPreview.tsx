@@ -14,8 +14,8 @@ export function AppPreview() {
   ];
 
   return (
-    <div className="relative">
-      <div className="pointer-events-none absolute -inset-x-10 -top-6 bottom-0 rounded-[40px] bg-gradient-to-b from-[#e9f2ff] to-transparent" />
+    <div className="relative overflow-x-clip">
+      <div className="pointer-events-none absolute inset-x-0 -top-6 bottom-0 rounded-[40px] bg-gradient-to-b from-[#e9f2ff] to-transparent" />
       <div className="relative overflow-hidden rounded-2xl border border-line bg-white shadow-float">
         <div className="flex h-10 items-center gap-2 border-b border-line bg-[#fbfcfe] px-4">
           <span className="h-2.5 w-2.5 rounded-full bg-[#ff5f57]" />
@@ -26,7 +26,7 @@ export function AppPreview() {
           </div>
         </div>
 
-        <div className="grid grid-cols-[190px_1fr]">
+        <div className="grid grid-cols-1 sm:grid-cols-[190px_1fr]">
           <aside className="hidden border-r border-line bg-white p-4 sm:block">
             <div className="flex items-center gap-2">
               <span className="flex h-7 w-7 items-center justify-center rounded-md bg-ink text-[11px] font-semibold text-white">AI</span>

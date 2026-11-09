@@ -6,7 +6,7 @@ import { PageHeader, Notice } from "@/components/PageHeader";
 import { PollComposer } from "@/components/PollComposer";
 import { deletePollAction } from "@/lib/actions";
 
-type Poll = { id: string; token: string; title: string; description: string; duration: number; created_at: string; options: number; votes: number; voters: number };
+type Poll = { id: string; token: string; title: string; description: string; duration: number; created_at: string; options: number; votes: number; voters: number; booked_booking_id: string | null };
 
 export default async function PollsPage({ searchParams }: { searchParams: Promise<{ created?: string; error?: string }> }) {
   const user = await getCurrentUser();
@@ -15,7 +15,7 @@ export default async function PollsPage({ searchParams }: { searchParams: Promis
 
   const polls = db
     .prepare(
-      "SELECT p.id, p.token, p.title, p.description, p.duration, p.created_at, " +
+      "SELECT p.id, p.token, p.title, p.description, p.duration, p.created_at, p.booked_booking_id, " +
       "(SELECT COUNT(*) FROM poll_options o WHERE o.poll_id = p.id) AS options, " +
       "(SELECT COUNT(*) FROM poll_votes v WHERE v.poll_id = p.id) AS votes, " +
       "(SELECT COUNT(DISTINCT v.email) FROM poll_votes v WHERE v.poll_id = p.id) AS voters " +
@@ -23,6 +23,10 @@ export default async function PollsPage({ searchParams }: { searchParams: Promis
     )
     .all(user.id) as Poll[];
 
+  const events = (db.prepare("SELECT id, title FROM event_types WHERE user_id = ? ORDER BY created_at").all(user.id) as { id: string; title: string }[]).map((e) => ({
+    id: String(e.id),
+    title: String(e.title),
+  }));
   const fmt = (iso: string) => new Date(iso).toLocaleDateString("en-US", { month: "short", day: "numeric" });
 
   return (
@@ -32,10 +36,11 @@ export default async function PollsPage({ searchParams }: { searchParams: Promis
       </PageHeader>
 
       {sp.error === "options" && <Notice kind="error">Add at least two different times to create a poll.</Notice>}
+      {sp.error === "event" && <Notice kind="error">Pick an event type for the poll.</Notice>}
       {sp.created && <Notice>Poll created. Share <span className="font-mono">/p/{sp.created}</span> and watch the votes come in.</Notice>}
 
       <div className="mt-6">
-        <PollComposer />
+        <PollComposer events={events} />
       </div>
 
       <div className="mt-6 space-y-3">
@@ -55,9 +60,11 @@ export default async function PollsPage({ searchParams }: { searchParams: Promis
                   {p.options} times · {p.duration} min · {p.voters} {p.voters === 1 ? "response" : "responses"} ({p.votes} votes) · created {fmt(p.created_at)}
                 </p>
                 <p className="mt-1 font-mono text-[12px] text-brand/80">calcal.app/p/{p.token}</p>
+                {p.booked_booking_id && <span className="mt-2 inline-block rounded-full bg-green-50 px-2 py-0.5 text-[11px] font-medium text-green-700">Booked</span>}
               </div>
               <div className="flex items-center gap-2">
                 <CopyButton path={"/p/" + p.token} />
+                <Link href={"/dashboard/polls/" + p.id} className="btn btn-primary">Manage</Link>
                 <a href={"/p/" + p.token} className="btn btn-outline">Open</a>
                 <form action={deletePollAction}>
                   <input type="hidden" name="id" value={p.id} />
