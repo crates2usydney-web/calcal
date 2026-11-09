@@ -218,6 +218,7 @@ export default async function BookingPage({
               </div>
             ) : (
               <div>
+                <p className="mb-5 text-center text-[16px] font-semibold">Select a Date &amp; Time</p>
                 <div className="flex items-center justify-between">
                   <Link
                     href={base + "?month=" + shiftMonth(month, -1)}
