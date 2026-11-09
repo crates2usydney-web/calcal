@@ -718,3 +718,11 @@ export async function outlookSyncAction() {
   await requireUser();
   redirect("/api/integrations/outlook/sync");
 }
+
+export async function m365DisconnectAction() {
+  const user = await requireUser();
+  db.prepare("DELETE FROM oauth_connections WHERE user_id = ? AND provider = 'microsoft-365'").run(user.id);
+  db.prepare("DELETE FROM calendar_busy WHERE user_id = ? AND provider = 'microsoft-365'").run(user.id);
+  revalidatePath("/dashboard/integrations");
+  redirect("/dashboard/integrations?m365=disconnected");
+}

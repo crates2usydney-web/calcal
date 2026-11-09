@@ -11,5 +11,6 @@ export async function GET(req: NextRequest) {
   const state = randomUUID();
   const res = NextResponse.redirect(msAuthUrl(state));
   res.cookies.set("ms_oauth_state", state, { httpOnly: true, sameSite: "lax", path: "/", maxAge: 600 });
+  res.cookies.set("ms_oauth_provider", "outlook-calendar", { httpOnly: true, sameSite: "lax", path: "/", maxAge: 600 });
   return res;
 }

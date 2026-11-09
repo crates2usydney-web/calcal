@@ -2,7 +2,7 @@ import Link from "next/link";
 import { getCurrentUser } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { CATEGORIES, INTEGRATIONS } from "@/lib/integrations/catalog";
-import { connectIntegrationAction, disconnectIntegrationAction, googleDemoConnectAction, googleSyncAction, googleDisconnectAction, outlookDisconnectAction } from "@/lib/actions";
+import { connectIntegrationAction, disconnectIntegrationAction, googleDemoConnectAction, googleSyncAction, googleDisconnectAction, outlookDisconnectAction, m365DisconnectAction } from "@/lib/actions";
 import { connectionStatus, isGoogleConfigured } from "@/lib/google";
 import { isMicrosoftConfigured } from "@/lib/microsoft";
 import { PageHeader } from "@/components/PageHeader";
@@ -18,16 +18,19 @@ const AUTH_LABEL: Record<string, string> = {
 export default async function IntegrationsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ q?: string; category?: string; connected?: string; google?: string; outlook?: string; n?: string }>;
+  searchParams: Promise<{ q?: string; category?: string; connected?: string; google?: string; outlook?: string; m365?: string; n?: string }>;
 }) {
   const user = await getCurrentUser();
   if (!user) return null;
-  const { q, category, connected, google, outlook, n } = await searchParams;
+  const { q, category, connected, google, outlook, m365, n } = await searchParams;
   const gStatus = connectionStatus(user.id);
   const gConfigured = isGoogleConfigured();
   const msConfigured = isMicrosoftConfigured();
   const msConn = db
     .prepare("SELECT account_email FROM oauth_connections WHERE user_id = ? AND provider = 'outlook-calendar'")
+    .get(user.id) as { account_email: string } | undefined;
+  const m365Conn = db
+    .prepare("SELECT account_email FROM oauth_connections WHERE user_id = ? AND provider = 'microsoft-365'")
     .get(user.id) as { account_email: string } | undefined;
   const connections = db
     .prepare("SELECT app_id FROM integration_connections WHERE user_id = ? AND status = 'connected'")
@@ -48,6 +51,20 @@ export default async function IntegrationsPage({
         title="Integrations"
         subtitle={"Connect calendars, video, CRM, payments, marketing and automation tools. " + INTEGRATIONS.length + " integrations available."}
       />
+      {m365 && (
+        <div className={"mt-4 rounded-lg px-3 py-2 text-[13px] " + (m365 === "error" || m365 === "denied" || m365 === "state" || m365 === "missing" || m365 === "syncerror" ? "bg-red-50 text-red-700" : "bg-green-50 text-green-800")}>
+          {m365 === "connected" && "Microsoft 365 (Exchange Online) connected. Busy times synced via Graph." + (n ? " (" + n + " events)" : "")}
+          {m365 === "synced" && "Synced " + (n ?? "0") + " events from Exchange Online."}
+          {m365 === "disconnected" && "Microsoft 365 disconnected. Busy blocks removed."}
+          {m365 === "notconfigured" && "Microsoft OAuth is not configured on this server."}
+          {m365 === "denied" && "Microsoft access was denied."}
+          {m365 === "state" && "OAuth state check failed. Please try again."}
+          {m365 === "missing" && "Microsoft did not return an authorization code."}
+          {m365 === "error" && "Microsoft 365 connection failed. Check server logs."}
+          {m365 === "syncerror" && "Exchange sync failed. Reconnect Microsoft 365."}
+        </div>
+      )}
+
       {outlook && (
         <div className={"mt-4 rounded-lg px-3 py-2 text-[13px] " + (outlook === "error" || outlook === "denied" || outlook === "state" || outlook === "missing" || outlook === "syncerror" ? "bg-red-50 text-red-700" : "bg-green-50 text-green-800")}>
           {outlook === "connected" && "Outlook Calendar connected. Busy times synced via Microsoft Graph." + (n ? " (" + n + " events)" : "")}
@@ -120,7 +137,24 @@ export default async function IntegrationsPage({
               <p className="mt-2 flex-1 text-[12px] leading-relaxed text-muted">{i.description}</p>
               <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
                 <div className="flex items-center gap-2"><span className="rounded bg-gray-100 px-1.5 py-0.5 text-[10.5px] text-gray-600">{AUTH_LABEL[i.auth]}</span><Link href={"/dashboard/integrations/" + i.id} className="text-[11.5px] font-medium text-brand hover:underline">Details</Link></div>
-                {i.id === "outlook-calendar" ? (
+                {i.id === "microsoft-365" ? (
+                  m365Conn ? (
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="text-[11px] text-muted">Connected · {m365Conn.account_email}</span>
+                      <a href="/api/integrations/microsoft-365/sync" className="rounded-lg border border-line px-2.5 py-1.5 text-[11px] font-medium">Sync now</a>
+                      <form action={m365DisconnectAction}>
+                        <button className="rounded-lg border border-line px-2.5 py-1.5 text-[11px] font-medium text-muted hover:text-red-600">Disconnect</button>
+                      </form>
+                    </div>
+                  ) : msConfigured ? (
+                    <a href="/api/integrations/microsoft-365/authorize" className="rounded-lg bg-navy px-3 py-1.5 text-[11.5px] font-medium text-white">Connect Microsoft 365</a>
+                  ) : (
+                    <form action={connectIntegrationAction}>
+                      <input type="hidden" name="app_id" value={i.id} />
+                      <button className="rounded-lg bg-navy px-3 py-1.5 text-[11.5px] font-medium text-white">Connect demo</button>
+                    </form>
+                  )
+                ) : i.id === "outlook-calendar" ? (
                   msConn ? (
                     <div className="flex flex-wrap items-center gap-2">
                       <span className="text-[11px] text-muted">Connected · {msConn.account_email}</span>

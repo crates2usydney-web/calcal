@@ -71,6 +71,18 @@ export function providerStatuses(): ProviderStatus[] {
       manageLabel: "Outlook Calendar",
     },
     {
+      id: "microsoft-365",
+      name: "Microsoft 365 (Exchange Online)",
+      purpose: "Exchange Online calendar sync for Microsoft 365 mailboxes and rooms.",
+      env: ["MICROSOFT_CLIENT_ID", "MICROSOFT_CLIENT_SECRET"],
+      mode: microsoft ? "live" : "demo",
+      detail: microsoft
+        ? "Live Microsoft Graph OAuth enabled. Connect Microsoft 365 from Integrations."
+        : "Demo mode only — connect marks Microsoft 365 connected without reading a real mailbox.",
+      manageHref: "/dashboard/integrations/microsoft-365",
+      manageLabel: "Microsoft 365",
+    },
+    {
       id: "resend",
       name: "Email delivery (Resend)",
       purpose: "Send confirmations, cancellations and reminders for real.",

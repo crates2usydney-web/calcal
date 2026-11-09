@@ -6,6 +6,10 @@ const AUTH_URL = "https://login.microsoftonline.com/common/oauth2/v2.0/authorize
 const TOKEN_URL = "https://login.microsoftonline.com/common/oauth2/v2.0/token";
 const GRAPH = "https://graph.microsoft.com/v1.0";
 export const MS_SCOPES = "offline_access User.Read Calendars.Read";
+export const MS_PROVIDERS: Record<string, string> = {
+  "outlook-calendar": "outlook-calendar",
+  "microsoft-365": "microsoft-365",
+};
 
 type Conn = {
   id: string;
@@ -26,7 +30,7 @@ export function msRedirectUri(): string {
   return (process.env.APP_URL || "http://localhost:3000") + "/api/integrations/outlook/callback";
 }
 
-export function msAuthUrl(state: string): string {
+export function msAuthUrl(state: string, provider = "outlook-calendar"): string {
   const params = new URLSearchParams({
     client_id: process.env.MICROSOFT_CLIENT_ID ?? "",
     response_type: "code",
@@ -83,18 +87,18 @@ async function msRefresh(conn: Conn): Promise<Conn> {
   return { ...conn, access_token: encrypt(data.access_token), refresh_token: data.refresh_token ? encrypt(data.refresh_token) : conn.refresh_token, expires_at: expires };
 }
 
-export function getMsConnection(userId: string): Conn | undefined {
+export function getMsConnection(userId: string, provider = "outlook-calendar"): Conn | undefined {
   return db
-    .prepare("SELECT id, user_id, provider, account_email, access_token, refresh_token, expires_at, scope FROM oauth_connections WHERE user_id = ? AND provider = 'outlook-calendar'")
-    .get(userId) as Conn | undefined;
+    .prepare("SELECT id, user_id, provider, account_email, access_token, refresh_token, expires_at, scope FROM oauth_connections WHERE user_id = ? AND provider = ?")
+    .get(userId, provider) as Conn | undefined;
 }
 
-export function saveMsConnection(userId: string, tokens: TokenResponse, email: string) {
+export function saveMsConnection(userId: string, tokens: TokenResponse, email: string, provider = "outlook-calendar") {
   const expires = new Date(Date.now() + tokens.expires_in * 1000).toISOString();
   db.prepare(
-    "INSERT INTO oauth_connections (id, user_id, provider, account_email, access_token, refresh_token, expires_at, scope, created_at) VALUES (?, ?, 'outlook-calendar', ?, ?, ?, ?, ?, ?) " +
+    "INSERT INTO oauth_connections (id, user_id, provider, account_email, access_token, refresh_token, expires_at, scope, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?) " +
       "ON CONFLICT(user_id, provider) DO UPDATE SET account_email = excluded.account_email, access_token = excluded.access_token, refresh_token = excluded.refresh_token, expires_at = excluded.expires_at, scope = excluded.scope, created_at = excluded.created_at"
-  ).run(randomUUID(), userId, email, encrypt(tokens.access_token), encrypt(tokens.refresh_token ?? ""), expires, tokens.scope ?? MS_SCOPES, new Date().toISOString());
+  ).run(randomUUID(), userId, provider, email, encrypt(tokens.access_token), encrypt(tokens.refresh_token ?? ""), expires, tokens.scope ?? MS_SCOPES, new Date().toISOString());
 }
 
 async function graphMe(accessToken: string): Promise<string> {
@@ -106,15 +110,15 @@ async function graphMe(accessToken: string): Promise<string> {
   return data.mail || data.userPrincipalName || "Outlook Calendar";
 }
 
-export async function msConnectFromCode(userId: string, code: string) {
+export async function msConnectFromCode(userId: string, code: string, provider = "outlook-calendar") {
   const tokens = await msExchangeCode(code);
   const email = await graphMe(tokens.access_token);
-  saveMsConnection(userId, tokens, email);
+  saveMsConnection(userId, tokens, email, provider);
   return email;
 }
 
-export async function msSyncBusy(userId: string, days = 30): Promise<number> {
-  let conn = getMsConnection(userId);
+export async function msSyncBusy(userId: string, days = 30, provider = "outlook-calendar"): Promise<number> {
+  let conn = getMsConnection(userId, provider);
   if (!conn) throw new Error("not connected");
   if (new Date(conn.expires_at).getTime() < Date.now() + 60_000) conn = await msRefresh(conn);
 
@@ -135,12 +139,12 @@ export async function msSyncBusy(userId: string, days = 30): Promise<number> {
   const data = (await res.json()) as { value?: { start: { dateTime: string }; end: { dateTime: string } }[] };
   const events = data.value ?? [];
 
-  db.prepare("DELETE FROM calendar_busy WHERE user_id = ? AND provider = 'outlook-calendar' AND start_utc >= ?").run(userId, from.toISOString());
-  const ins = db.prepare("INSERT INTO calendar_busy (id, user_id, provider, start_utc, end_utc, source, created_at) VALUES (?, ?, 'outlook-calendar', ?, ?, 'graph', ?)");
+  db.prepare("DELETE FROM calendar_busy WHERE user_id = ? AND provider = ? AND start_utc >= ?").run(userId, provider, from.toISOString());
+  const ins = db.prepare("INSERT INTO calendar_busy (id, user_id, provider, start_utc, end_utc, source, created_at) VALUES (?, ?, ?, ?, ?, 'graph', ?)");
   for (const ev of events) {
     const start = new Date(ev.start.dateTime.endsWith("Z") ? ev.start.dateTime : ev.start.dateTime + "Z").toISOString();
     const end = new Date(ev.end.dateTime.endsWith("Z") ? ev.end.dateTime : ev.end.dateTime + "Z").toISOString();
-    ins.run(randomUUID(), userId, start, end, new Date().toISOString());
+    ins.run(randomUUID(), userId, provider, start, end, new Date().toISOString());
   }
   return events.length;
 }

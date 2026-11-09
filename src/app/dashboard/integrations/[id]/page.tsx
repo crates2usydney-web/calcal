@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 import { getCurrentUser } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { CATEGORIES, getIntegration, INTEGRATIONS } from "@/lib/integrations/catalog";
-import { connectIntegrationAction, disconnectIntegrationAction, googleDemoConnectAction, googleSyncAction, googleDisconnectAction, outlookDisconnectAction } from "@/lib/actions";
+import { connectIntegrationAction, disconnectIntegrationAction, googleDemoConnectAction, googleSyncAction, googleDisconnectAction, outlookDisconnectAction, m365DisconnectAction } from "@/lib/actions";
 import { connectionStatus, isGoogleConfigured } from "@/lib/google";
 import { isMicrosoftConfigured } from "@/lib/microsoft";
 import { PageHeader, Notice } from "@/components/PageHeader";
@@ -20,10 +20,14 @@ export default async function IntegrationDetailPage({ params }: { params: Promis
   const conn = db
     .prepare("SELECT status, mode, connected_at FROM integration_connections WHERE user_id = ? AND app_id = ?")
     .get(user.id, app.id) as { status: string; mode: string; connected_at: string } | undefined;
-  const isOutlook = app.id === "outlook-calendar";
-  const msConfigured = isOutlook ? isMicrosoftConfigured() : false;
-  const msConn = isOutlook
-    ? (db.prepare("SELECT account_email FROM oauth_connections WHERE user_id = ? AND provider = 'outlook-calendar'").get(user.id) as { account_email: string } | undefined)
+  const msProvider = app.id === "outlook-calendar" ? "outlook-calendar" : app.id === "microsoft-365" ? "microsoft-365" : null;
+  const isOutlook = msProvider === "outlook-calendar";
+  const msConfigured = msProvider ? isMicrosoftConfigured() : false;
+  const msSyncHref = msProvider === "microsoft-365" ? "/api/integrations/microsoft-365/sync" : "/api/integrations/outlook/sync";
+  const msAuthorizeHref = msProvider === "microsoft-365" ? "/api/integrations/microsoft-365/authorize" : "/api/integrations/outlook/authorize";
+  const msDisconnectAction = msProvider === "microsoft-365" ? m365DisconnectAction : outlookDisconnectAction;
+  const msConn = msProvider
+    ? (db.prepare("SELECT account_email FROM oauth_connections WHERE user_id = ? AND provider = ?").get(user.id, msProvider) as { account_email: string } | undefined)
     : undefined;
   const connected = conn?.status === "connected" || Boolean(msConn);
   const isGoogle = app.id === "google-calendar";
@@ -45,10 +49,10 @@ export default async function IntegrationDetailPage({ params }: { params: Promis
             {connected ? (
               <>
                 <span className="rounded-full bg-green-50 px-3 py-1 text-[12px] font-semibold text-green-700">Connected</span>
-                {isOutlook ? (
+                {msProvider ? (
                   <>
-                    <a href="/api/integrations/outlook/sync" className="btn btn-outline">Sync now</a>
-                    <form action={outlookDisconnectAction}><button className="btn btn-outline">Disconnect</button></form>
+                    <a href={msSyncHref} className="btn btn-outline">Sync now</a>
+                    <form action={msDisconnectAction}><button className="btn btn-outline">Disconnect</button></form>
                   </>
                 ) : isGoogle ? (
                   <form action={googleDisconnectAction}><button className="btn btn-outline">Disconnect</button></form>
@@ -59,9 +63,9 @@ export default async function IntegrationDetailPage({ params }: { params: Promis
                   </form>
                 )}
               </>
-            ) : isOutlook ? (
+            ) : msProvider ? (
               msConfigured ? (
-                <a href="/api/integrations/outlook/authorize" className="btn btn-primary">Connect Outlook</a>
+                <a href={msAuthorizeHref} className="btn btn-primary">{isOutlook ? "Connect Outlook" : "Connect Microsoft 365"}</a>
               ) : (
                 <>
                   <form action={connectIntegrationAction}>
@@ -117,13 +121,13 @@ export default async function IntegrationDetailPage({ params }: { params: Promis
         </div>
       )}
 
-      {isOutlook && msConn && (
+      {msProvider && msConn && (
         <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-line bg-white p-4">
           <div>
-            <p className="text-[13px] font-semibold">Microsoft Graph calendar sync</p>
+            <p className="text-[13px] font-semibold">{isOutlook ? "Microsoft Graph calendar sync" : "Exchange Online calendar sync"}</p>
             <p className="text-[12px] text-muted">Connected as {msConn.account_email}. Busy times block booking slots.</p>
           </div>
-          <a href="/api/integrations/outlook/sync" className="btn btn-outline">Sync now</a>
+          <a href={msSyncHref} className="btn btn-outline">Sync now</a>
         </div>
       )}
 
