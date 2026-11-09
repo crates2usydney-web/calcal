@@ -49,10 +49,14 @@ export default async function IntegrationDetailPage({ params }: { params: Promis
                 )}
               </>
             ) : isGoogle ? (
-              <>
-                <form action={googleDemoConnectAction}><button className="btn btn-primary">Connect demo</button></form>
-                {!gConfigured && <span className="text-[11.5px] text-muted">OAuth keys not configured</span>}
-              </>
+              gConfigured ? (
+                <a href="/api/integrations/google-calendar/authorize" className="btn btn-primary">Connect Google</a>
+              ) : (
+                <>
+                  <form action={googleDemoConnectAction}><button className="btn btn-primary">Connect demo</button></form>
+                  <span className="text-[11.5px] text-muted">OAuth keys not configured</span>
+                </>
+              )
             ) : (
               <form action={connectIntegrationAction}>
                 <input type="hidden" name="app_id" value={app.id} />
