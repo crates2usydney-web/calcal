@@ -2,8 +2,9 @@ import Link from "next/link";
 import { getCurrentUser } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { CATEGORIES, INTEGRATIONS } from "@/lib/integrations/catalog";
-import { connectIntegrationAction, disconnectIntegrationAction, googleDemoConnectAction, googleSyncAction, googleDisconnectAction } from "@/lib/actions";
+import { connectIntegrationAction, disconnectIntegrationAction, googleDemoConnectAction, googleSyncAction, googleDisconnectAction, outlookDisconnectAction } from "@/lib/actions";
 import { connectionStatus, isGoogleConfigured } from "@/lib/google";
+import { isMicrosoftConfigured } from "@/lib/microsoft";
 import { PageHeader } from "@/components/PageHeader";
 
 const AUTH_LABEL: Record<string, string> = {
@@ -17,13 +18,17 @@ const AUTH_LABEL: Record<string, string> = {
 export default async function IntegrationsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ q?: string; category?: string; connected?: string; google?: string; n?: string }>;
+  searchParams: Promise<{ q?: string; category?: string; connected?: string; google?: string; outlook?: string; n?: string }>;
 }) {
   const user = await getCurrentUser();
   if (!user) return null;
-  const { q, category, connected, google, n } = await searchParams;
+  const { q, category, connected, google, outlook, n } = await searchParams;
   const gStatus = connectionStatus(user.id);
   const gConfigured = isGoogleConfigured();
+  const msConfigured = isMicrosoftConfigured();
+  const msConn = db
+    .prepare("SELECT account_email FROM oauth_connections WHERE user_id = ? AND provider = 'outlook-calendar'")
+    .get(user.id) as { account_email: string } | undefined;
   const connections = db
     .prepare("SELECT app_id FROM integration_connections WHERE user_id = ? AND status = 'connected'")
     .all(user.id) as { app_id: string }[];
@@ -43,6 +48,20 @@ export default async function IntegrationsPage({
         title="Integrations"
         subtitle={"Connect calendars, video, CRM, payments, marketing and automation tools. " + INTEGRATIONS.length + " integrations available."}
       />
+      {outlook && (
+        <div className={"mt-4 rounded-lg px-3 py-2 text-[13px] " + (outlook === "error" || outlook === "denied" || outlook === "state" || outlook === "missing" || outlook === "syncerror" ? "bg-red-50 text-red-700" : "bg-green-50 text-green-800")}>
+          {outlook === "connected" && "Outlook Calendar connected. Busy times synced via Microsoft Graph." + (n ? " (" + n + " events)" : "")}
+          {outlook === "synced" && "Synced " + (n ?? "0") + " events from Outlook."}
+          {outlook === "disconnected" && "Outlook Calendar disconnected. Busy blocks removed."}
+          {outlook === "notconfigured" && "Microsoft OAuth is not configured on this server. Set MICROSOFT_CLIENT_ID and MICROSOFT_CLIENT_SECRET."}
+          {outlook === "denied" && "Microsoft access was denied."}
+          {outlook === "state" && "OAuth state check failed. Please try again."}
+          {outlook === "missing" && "Microsoft did not return an authorization code."}
+          {outlook === "error" && "Outlook connection failed. Check server logs."}
+          {outlook === "syncerror" && "Calendar sync failed. Reconnect Outlook Calendar."}
+        </div>
+      )}
+
       {google && (
         <div className={"mt-4 rounded-lg px-3 py-2 text-[13px] " + (google.includes("error") || google === "denied" || google === "state" || google === "missing" ? "bg-red-50 text-red-700" : "bg-green-50 text-green-800")}>
           {google === "demo" && "Google Calendar connected in demo mode — synthetic busy blocks now block booking slots."}
@@ -101,7 +120,24 @@ export default async function IntegrationsPage({
               <p className="mt-2 flex-1 text-[12px] leading-relaxed text-muted">{i.description}</p>
               <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
                 <div className="flex items-center gap-2"><span className="rounded bg-gray-100 px-1.5 py-0.5 text-[10.5px] text-gray-600">{AUTH_LABEL[i.auth]}</span><Link href={"/dashboard/integrations/" + i.id} className="text-[11.5px] font-medium text-brand hover:underline">Details</Link></div>
-                {i.id === "google-calendar" ? (
+                {i.id === "outlook-calendar" ? (
+                  msConn ? (
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="text-[11px] text-muted">Connected · {msConn.account_email}</span>
+                      <a href="/api/integrations/outlook/sync" className="rounded-lg border border-line px-2.5 py-1.5 text-[11px] font-medium">Sync now</a>
+                      <form action={outlookDisconnectAction}>
+                        <button className="rounded-lg border border-line px-2.5 py-1.5 text-[11px] font-medium text-muted hover:text-red-600">Disconnect</button>
+                      </form>
+                    </div>
+                  ) : msConfigured ? (
+                    <a href="/api/integrations/outlook/authorize" className="rounded-lg bg-navy px-3 py-1.5 text-[11.5px] font-medium text-white">Connect Outlook</a>
+                  ) : (
+                    <form action={connectIntegrationAction}>
+                      <input type="hidden" name="app_id" value={i.id} />
+                      <button className="rounded-lg bg-navy px-3 py-1.5 text-[11.5px] font-medium text-white">Connect demo</button>
+                    </form>
+                  )
+                ) : i.id === "google-calendar" ? (
                   gStatus.connected ? (
                     <div className="flex flex-wrap items-center gap-2">
                       <span className="text-[11px] text-muted">{gStatus.busy} busy · {gStatus.mode}</span>

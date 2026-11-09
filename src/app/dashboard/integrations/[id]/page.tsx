@@ -3,8 +3,9 @@ import { notFound } from "next/navigation";
 import { getCurrentUser } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { CATEGORIES, getIntegration, INTEGRATIONS } from "@/lib/integrations/catalog";
-import { connectIntegrationAction, disconnectIntegrationAction, googleDemoConnectAction, googleSyncAction, googleDisconnectAction } from "@/lib/actions";
+import { connectIntegrationAction, disconnectIntegrationAction, googleDemoConnectAction, googleSyncAction, googleDisconnectAction, outlookDisconnectAction } from "@/lib/actions";
 import { connectionStatus, isGoogleConfigured } from "@/lib/google";
+import { isMicrosoftConfigured } from "@/lib/microsoft";
 import { PageHeader, Notice } from "@/components/PageHeader";
 
 const AUTH_LABEL: Record<string, string> = { oauth: "OAuth", api_key: "API key", webhook: "Webhook", ics: "ICS feed", smtp: "SMTP" };
@@ -19,7 +20,12 @@ export default async function IntegrationDetailPage({ params }: { params: Promis
   const conn = db
     .prepare("SELECT status, mode, connected_at FROM integration_connections WHERE user_id = ? AND app_id = ?")
     .get(user.id, app.id) as { status: string; mode: string; connected_at: string } | undefined;
-  const connected = conn?.status === "connected";
+  const isOutlook = app.id === "outlook-calendar";
+  const msConfigured = isOutlook ? isMicrosoftConfigured() : false;
+  const msConn = isOutlook
+    ? (db.prepare("SELECT account_email FROM oauth_connections WHERE user_id = ? AND provider = 'outlook-calendar'").get(user.id) as { account_email: string } | undefined)
+    : undefined;
+  const connected = conn?.status === "connected" || Boolean(msConn);
   const isGoogle = app.id === "google-calendar";
   const gStatus = isGoogle ? connectionStatus(user.id) : null;
   const gConfigured = isGoogle ? isGoogleConfigured() : false;
@@ -39,7 +45,12 @@ export default async function IntegrationDetailPage({ params }: { params: Promis
             {connected ? (
               <>
                 <span className="rounded-full bg-green-50 px-3 py-1 text-[12px] font-semibold text-green-700">Connected</span>
-                {isGoogle ? (
+                {isOutlook ? (
+                  <>
+                    <a href="/api/integrations/outlook/sync" className="btn btn-outline">Sync now</a>
+                    <form action={outlookDisconnectAction}><button className="btn btn-outline">Disconnect</button></form>
+                  </>
+                ) : isGoogle ? (
                   <form action={googleDisconnectAction}><button className="btn btn-outline">Disconnect</button></form>
                 ) : (
                   <form action={disconnectIntegrationAction}>
@@ -48,6 +59,18 @@ export default async function IntegrationDetailPage({ params }: { params: Promis
                   </form>
                 )}
               </>
+            ) : isOutlook ? (
+              msConfigured ? (
+                <a href="/api/integrations/outlook/authorize" className="btn btn-primary">Connect Outlook</a>
+              ) : (
+                <>
+                  <form action={connectIntegrationAction}>
+                    <input type="hidden" name="app_id" value={app.id} />
+                    <button className="btn btn-primary">Connect demo</button>
+                  </form>
+                  <span className="text-[11.5px] text-muted">OAuth keys not configured</span>
+                </>
+              )
             ) : isGoogle ? (
               gConfigured ? (
                 <a href="/api/integrations/google-calendar/authorize" className="btn btn-primary">Connect Google</a>
@@ -94,6 +117,16 @@ export default async function IntegrationDetailPage({ params }: { params: Promis
         </div>
       )}
 
+      {isOutlook && msConn && (
+        <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-line bg-white p-4">
+          <div>
+            <p className="text-[13px] font-semibold">Microsoft Graph calendar sync</p>
+            <p className="text-[12px] text-muted">Connected as {msConn.account_email}. Busy times block booking slots.</p>
+          </div>
+          <a href="/api/integrations/outlook/sync" className="btn btn-outline">Sync now</a>
+        </div>
+      )}
+
       <div className="mt-4 rounded-xl border border-line bg-white p-5">
         <h2 className="text-[13.5px] font-semibold">What this integration does</h2>
         <ul className="mt-2 space-y-1.5 text-[13px] text-muted">
@@ -101,7 +134,7 @@ export default async function IntegrationDetailPage({ params }: { params: Promis
           <li>• Booking events fire the matching workflow automatically.</li>
           <li>• Disconnecting stops future syncs and removes stored credentials.</li>
         </ul>
-        <p className="mt-3 text-[12px] text-muted">Connections run in demo mode until provider credentials are configured on the server.</p>
+        <p className="mt-3 text-[12px] text-muted">{connected && !msConn && !isGoogle ? "Connected in demo mode." : "Connections run in demo mode until provider credentials are configured on the server."}</p>
       </div>
 
       {related.length > 0 && (

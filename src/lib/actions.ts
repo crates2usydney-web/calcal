@@ -705,3 +705,16 @@ export async function submitRoutingFormAction(fd: FormData) {
   const qs = new URLSearchParams({ name, email, notes: note });
   redirect("/" + target.username + "/" + target.slug + "?" + qs.toString());
 }
+
+export async function outlookDisconnectAction() {
+  const user = await requireUser();
+  db.prepare("DELETE FROM oauth_connections WHERE user_id = ? AND provider = 'outlook-calendar'").run(user.id);
+  db.prepare("DELETE FROM calendar_busy WHERE user_id = ? AND provider = 'outlook-calendar'").run(user.id);
+  revalidatePath("/dashboard/integrations");
+  redirect("/dashboard/integrations?outlook=disconnected");
+}
+
+export async function outlookSyncAction() {
+  await requireUser();
+  redirect("/api/integrations/outlook/sync");
+}

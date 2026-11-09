@@ -18,6 +18,9 @@ export function providerStatuses(): ProviderStatus[] {
   const stripe = hasAll("STRIPE_SECRET_KEY", "STRIPE_WEBHOOK_SECRET");
   const stripePartial = hasAny("STRIPE_SECRET_KEY", "STRIPE_WEBHOOK_SECRET") && !stripe;
 
+  const microsoft = hasAll("MICROSOFT_CLIENT_ID", "MICROSOFT_CLIENT_SECRET");
+  const microsoftPartial = hasAny("MICROSOFT_CLIENT_ID", "MICROSOFT_CLIENT_SECRET") && !microsoft;
+
   const google = hasAll("GOOGLE_CLIENT_ID", "GOOGLE_CLIENT_SECRET");
   const googlePartial = hasAny("GOOGLE_CLIENT_ID", "GOOGLE_CLIENT_SECRET") && !google;
 
@@ -52,6 +55,20 @@ export function providerStatuses(): ProviderStatus[] {
         : "Demo mode only — connecting generates synthetic busy blocks instead of reading a real calendar.",
       manageHref: "/dashboard/integrations/google-calendar",
       manageLabel: "Google Calendar",
+    },
+    {
+      id: "microsoft",
+      name: "Microsoft Outlook",
+      purpose: "Read Outlook/Microsoft 365 busy times and block conflicting slots.",
+      env: ["MICROSOFT_CLIENT_ID", "MICROSOFT_CLIENT_SECRET"],
+      mode: microsoft ? "live" : "demo",
+      detail: microsoft
+        ? "Live Microsoft Graph OAuth enabled. Connect Outlook from Integrations to sync busy times."
+        : microsoftPartial
+        ? "Only one Microsoft credential is set. Add both to enable real Outlook OAuth."
+        : "Demo mode only — connecting marks Outlook connected without reading a real calendar.",
+      manageHref: "/dashboard/integrations/outlook-calendar",
+      manageLabel: "Outlook Calendar",
     },
     {
       id: "resend",
