@@ -1,0 +1,43 @@
+services:
+  - type: web
+    name: calcal
+    runtime: docker
+    plan: starter
+    healthCheckPath: /api/health
+    autoDeploy: true
+    envVars:
+      - key: APP_URL
+        sync: false
+      - key: APP_SECRET
+        generateValue: true
+      - key: DATABASE_PATH
+        value: /app/data/app.db
+      - key: CRON_SECRET
+        generateValue: true
+      - key: RESEND_API_KEY
+        sync: false
+      - key: MAIL_FROM
+        sync: false
+      - key: GOOGLE_CLIENT_ID
+        sync: false
+      - key: GOOGLE_CLIENT_SECRET
+        sync: false
+      - key: STRIPE_SECRET_KEY
+        sync: false
+      - key: STRIPE_WEBHOOK_SECRET
+        sync: false
+    disk:
+      name: calcal-data
+      mountPath: /app/data
+      sizeGB: 1
+
+  - type: cron
+    name: calcal-reminders
+    runtime: docker
+    schedule: "*/1 * * * *"
+    dockerCommand: node -e "fetch(process.env.APP_URL + '/api/cron/reminders', { method: 'POST', headers: { authorization: 'Bearer ' + process.env.CRON_SECRET } }).then(r => r.text()).then(console.log)"
+    envVars:
+      - key: APP_URL
+        sync: false
+      - key: CRON_SECRET
+        sync: false

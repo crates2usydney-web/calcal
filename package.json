@@ -1,0 +1,29 @@
+{
+  "name": "calendly-clone",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev -p 3000",
+    "build": "next build",
+    "start": "next start -p 3000",
+    "preflight": "node scripts/preflight.mjs",
+    "start:standalone": "node .next/standalone/server.js",
+    "docker:build": "docker build -t calcal:local .",
+    "docker:run": "docker run --rm -p 3000:3000 -v calcal-data:/app/data --env-file .env.production calcal:local"
+  },
+  "dependencies": {
+    "date-fns": "^4.1.0",
+    "date-fns-tz": "^3.2.0",
+    "next": "^15.5.0",
+    "react": "19.1.0",
+    "react-dom": "19.1.0"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "^4.1.0",
+    "@types/node": "^22.10.0",
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
+    "tailwindcss": "^4.1.0",
+    "typescript": "^5.7.0"
+  }
+}

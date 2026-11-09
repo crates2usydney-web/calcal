@@ -1,0 +1,11 @@
+node_modules
+.next
+.git
+data
+recordings
+*.png
+*.html
+npm-debug.log
+.npmcache
+.env*
+!.env.production.example
