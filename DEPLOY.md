@@ -97,9 +97,12 @@ Expected health: {"ok":true,"db":true,"users":N,"version":"1.0.0"}.
 ## Current deployment
 
 - URL: https://calcal-yzv8.onrender.com
-- Provider: Render, Docker runtime, Free instance, Oregon
+- Provider: Render, Docker runtime, **Starter** instance (0.5 CPU / 512 MB), Oregon
+- Disk: 1 GB at /app/data; DATABASE_PATH=/app/data/app.db
 - Repo: https://github.com/crates2usydney-web/calcal (public, main)
-- Env: APP_URL, APP_SECRET, DATABASE_PATH=/tmp/calcal.db, CRON_SECRET, MAIL_FROM
+- Env: APP_URL, APP_SECRET, DATABASE_PATH, CRON_SECRET, MAIL_FROM
 - Health: https://calcal-yzv8.onrender.com/api/health
 
-Upgrade path: Starter instance + 1GB disk mounted at /app/data + DATABASE_PATH=/app/data/app.db, then add the reminder cron.
+Persistence verified across a full rebuild: a booking made before the redeploy remained booked afterwards.
+
+Remaining: reminder cron (Render Cron Job calling POST /api/cron/reminders with bearer CRON_SECRET), then Stripe + Google keys.

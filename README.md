@@ -267,6 +267,9 @@ See [DEPLOY.md](DEPLOY.md) for the full Render/Fly/Docker runbook.
 Docker image verified locally: build succeeds, container reports healthy, /api/health, /pricing, /docs/api and static assets return 200, and SQLite persists across restarts on the mounted volume.
 ## Live demo
 
-https://calcal-yzv8.onrender.com (Render, Docker, free instance).
+https://calcal-yzv8.onrender.com (Render, Docker, Starter instance 0.5 CPU / 512 MB).
 
-Free instance notes: sleeps after inactivity (~50s cold start), SQLite lives at /tmp/calcal.db so data resets on deploy/restart, no persistent disk or cron. Upgrade to Starter + disk + cron for production use (see DEPLOY.md).
+- 1 GB persistent disk mounted at /app/data; SQLite at /app/data/app.db.
+- Verified: a booking created before a full rebuild was still there afterwards (the 9:30 slot stayed booked).
+- No sleep/cold starts on Starter.
+- Reminder cron is not configured yet; create a Render Cron Job (or external scheduler) that calls POST /api/cron/reminders every minute with CRON_SECRET.
