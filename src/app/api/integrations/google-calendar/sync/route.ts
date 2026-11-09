@@ -9,7 +9,8 @@ export async function GET(req: NextRequest) {
   try {
     const result = await syncBusy(user.id, 30);
     return Response.redirect(new URL("/dashboard/integrations?google=synced&n=" + result.busy, base));
-  } catch {
+  } catch (err) {
+    console.error("google-calendar sync failed:", err);
     return Response.redirect(new URL("/dashboard/integrations?google=syncerror", base));
   }
 }
