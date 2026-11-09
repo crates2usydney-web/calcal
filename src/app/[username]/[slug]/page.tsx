@@ -52,7 +52,7 @@ export default async function BookingPage({
   searchParams,
 }: {
   params: Promise<{ username: string; slug: string }>;
-  searchParams: Promise<{ month?: string; day?: string; slot?: string; error?: string }>;
+  searchParams: Promise<{ month?: string; day?: string; slot?: string; error?: string; name?: string; email?: string; notes?: string }>;
 }) {
   const { username, slug } = await params;
   const sp = await searchParams;
@@ -99,6 +99,11 @@ export default async function BookingPage({
     return d.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric", timeZone: "UTC" });
   };
   const base = "/" + row.host_username + "/" + row.slug;
+  const prefill = new URLSearchParams();
+  if (sp.name) prefill.set("name", sp.name);
+  if (sp.email) prefill.set("email", sp.email);
+  if (sp.notes) prefill.set("notes", sp.notes);
+  const prefillQs = prefill.toString() ? "&" + prefill.toString() : "";
 
   return (
     <div className="min-h-screen bg-[#f7f9fc]">
@@ -154,7 +159,7 @@ export default async function BookingPage({
             {selectedSlot ? (
               <div>
                 <div className="flex items-center justify-between">
-                  <Link href={base + "?month=" + month + "&day=" + selectedDay} className="inline-flex items-center gap-1 text-[13px] font-medium text-muted hover:text-ink">
+                  <Link href={base + "?month=" + month + "&day=" + selectedDay + prefillQs} className="inline-flex items-center gap-1 text-[13px] font-medium text-muted hover:text-ink">
                     <span aria-hidden>←</span> Back
                   </Link>
                   <p className="text-[13px] text-muted">{shortDay(selectedDay!)}</p>
@@ -174,15 +179,15 @@ export default async function BookingPage({
                   <input type="hidden" name="startISO" value={selectedSlot.startISO} />
                   <div>
                     <label className="label">Name <span className="text-brand">*</span></label>
-                    <input name="name" required className="input" />
+                    <input name="name" required defaultValue={sp.name ?? ""} className="input" />
                   </div>
                   <div>
                     <label className="label">Email <span className="text-brand">*</span></label>
-                    <input name="email" type="email" required className="input" />
+                    <input name="email" type="email" required defaultValue={sp.email ?? ""} className="input" />
                   </div>
                   <div>
                     <label className="label">Please share anything that will help prepare for our meeting.</label>
-                    <textarea name="notes" rows={3} className="input resize-none" />
+                    <textarea name="notes" rows={3} defaultValue={sp.notes ?? ""} className="input resize-none" />
                   </div>
                   <button className="w-full rounded-lg bg-brand py-3 text-[14px] font-semibold text-white transition hover:bg-brand-dark">Schedule event</button>
                   <p className="text-center text-[11.5px] leading-relaxed text-muted">
@@ -193,7 +198,7 @@ export default async function BookingPage({
             ) : selectedDay ? (
               <div>
                 <div className="flex items-start justify-between">
-                  <Link href={base + "?month=" + month} className="inline-flex items-center gap-1 text-[13px] font-medium text-muted hover:text-ink">
+                  <Link href={base + "?month=" + month + prefillQs} className="inline-flex items-center gap-1 text-[13px] font-medium text-muted hover:text-ink">
                     <span aria-hidden>←</span> Back
                   </Link>
                   <div className="text-right">
@@ -207,7 +212,7 @@ export default async function BookingPage({
                   {slots.map((s) => (
                     <Link
                       key={s.startISO}
-                      href={base + "?month=" + month + "&day=" + selectedDay + "&slot=" + encodeURIComponent(s.startISO)}
+                      href={base + "?month=" + month + "&day=" + selectedDay + "&slot=" + encodeURIComponent(s.startISO) + prefillQs}
                       className="rounded-lg border border-brand/50 bg-white py-2.5 text-center text-[13.5px] font-semibold text-brand transition hover:border-brand hover:bg-brand hover:text-white"
                     >
                       {s.label}
@@ -246,7 +251,7 @@ export default async function BookingPage({
                     d.hasSlots ? (
                       <Link
                         key={d.iso}
-                        href={base + "?month=" + month + "&day=" + d.iso}
+                        href={base + "?month=" + month + "&day=" + d.iso + prefillQs}
                         className="mx-auto flex h-10 w-10 items-center justify-center rounded-full bg-brand-soft text-[13px] font-semibold text-brand transition hover:bg-brand hover:text-white"
                       >
                         {d.num}

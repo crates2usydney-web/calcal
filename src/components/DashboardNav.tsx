@@ -30,6 +30,12 @@ const icons = {
   key: (
     <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><circle cx="8" cy="12" r="4" stroke="currentColor" strokeWidth="1.7"/><path d="M12 12h8.5M17 12v3M20 12v2" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round"/></svg>
   ),
+  poll: (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M4 19V5M4 19h16" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round"/><rect x="7" y="12" width="3" height="4" rx="0.6" stroke="currentColor" strokeWidth="1.6"/><rect x="12" y="8" width="3" height="8" rx="0.6" stroke="currentColor" strokeWidth="1.6"/><rect x="17" y="5" width="3" height="11" rx="0.6" stroke="currentColor" strokeWidth="1.6"/></svg>
+  ),
+  route: (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><circle cx="6" cy="6" r="2.5" stroke="currentColor" strokeWidth="1.7"/><circle cx="18" cy="18" r="2.5" stroke="currentColor" strokeWidth="1.7"/><path d="M8.5 6H14a4 4 0 0 1 0 8H9a3 3 0 0 0 0 6h6.5" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round"/></svg>
+  ),
   settings: (
     <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="3" stroke="currentColor" strokeWidth="1.7"/><path d="M19 12a7 7 0 0 0-.1-1.2l2-1.5-2-3.4-2.3.9a7 7 0 0 0-2-1.2L14.2 3h-4l-.4 2.6a7 7 0 0 0-2 1.2l-2.3-.9-2 3.4 2 1.5A7 7 0 0 0 5 12c0 .4 0 .8.1 1.2l-2 1.5 2 3.4 2.3-.9a7 7 0 0 0 2 1.2l.4 2.6h4l.4-2.6a7 7 0 0 0 2-1.2l2.3.9 2-3.4-2-1.5c.1-.4.1-.8.1-1.2Z" stroke="currentColor" strokeWidth="1.4"/></svg>
   ),
@@ -42,6 +48,8 @@ const groups: { title: string; items: Item[] }[] = [
       { href: "/dashboard", label: "Event types", icon: "grid" },
       { href: "/dashboard/availability", label: "Availability", icon: "clock" },
       { href: "/dashboard/bookings", label: "Bookings", icon: "calendar" },
+      { href: "/dashboard/polls", label: "Meeting polls", icon: "poll" },
+      { href: "/dashboard/routing", label: "Routing forms", icon: "route" },
       { href: "/dashboard/team", label: "Team", icon: "users" },
     ],
   },

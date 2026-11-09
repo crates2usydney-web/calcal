@@ -503,3 +503,104 @@ export async function updateSettingsAction(fd: FormData) {
   revalidatePath("/dashboard/settings");
   redirect("/dashboard/settings?saved=1");
 }
+
+export async function createPollAction(fd: FormData) {
+  const user = await requireUser();
+  const title = str(fd, "title") || "Meeting poll";
+  const description = str(fd, "description");
+  const duration = Math.max(5, Math.min(240, Number(str(fd, "duration", "30")) || 30));
+  let options: string[] = [];
+  try {
+    const parsed = JSON.parse(str(fd, "options", "[]"));
+    if (Array.isArray(parsed)) options = parsed.filter((x): x is string => typeof x === "string" && !Number.isNaN(Date.parse(x)));
+  } catch {
+    options = [];
+  }
+  if (options.length < 2) redirect("/dashboard/polls?error=options");
+  const id = randomUUID();
+  const token = randomUUID().replace(/-/g, "").slice(0, 20);
+  db.prepare("INSERT INTO polls (id, user_id, token, title, description, duration, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)").run(
+    id, user.id, token, title, description, duration, new Date().toISOString()
+  );
+  const ins = db.prepare("INSERT INTO poll_options (id, poll_id, start_utc, position) VALUES (?, ?, ?, ?)");
+  options.forEach((iso, i) => ins.run(randomUUID(), id, iso, i));
+  revalidatePath("/dashboard/polls");
+  redirect("/dashboard/polls?created=" + token);
+}
+
+export async function deletePollAction(fd: FormData) {
+  const user = await requireUser();
+  db.prepare("DELETE FROM polls WHERE id = ? AND user_id = ?").run(str(fd, "id"), user.id);
+  revalidatePath("/dashboard/polls");
+  redirect("/dashboard/polls");
+}
+
+export async function votePollAction(fd: FormData) {
+  const token = str(fd, "token");
+  const name = str(fd, "name");
+  const email = str(fd, "email");
+  const poll = db.prepare("SELECT id FROM polls WHERE token = ?").get(token) as { id: string } | undefined;
+  if (!poll) redirect("/");
+  if (!name || !email) redirect("/p/" + token + "?error=missing");
+  const ids = fd.getAll("option").filter((x): x is string => typeof x === "string");
+  const valid = db.prepare("SELECT id FROM poll_options WHERE poll_id = ?").all(poll.id) as { id: string }[];
+  const validSet = new Set(valid.map((v) => v.id));
+  const ins = db.prepare("INSERT INTO poll_votes (id, poll_id, option_id, name, email, created_at) VALUES (?, ?, ?, ?, ?, ?)");
+  for (const optionId of ids) if (validSet.has(optionId)) ins.run(randomUUID(), poll.id, optionId, name, email, new Date().toISOString());
+  revalidatePath("/p/" + token);
+  redirect("/p/" + token + "?voted=1");
+}
+
+export async function createRoutingFormAction(fd: FormData) {
+  const user = await requireUser();
+  const title = str(fd, "title") || "Routing form";
+  const description = str(fd, "description");
+  const eventTypeId = str(fd, "event_type_id");
+  const ev = db.prepare("SELECT id FROM event_types WHERE id = ? AND user_id = ?").get(eventTypeId, user.id);
+  if (!ev) redirect("/dashboard/routing?error=event");
+  let questions: { key: string; label: string }[] = [];
+  try {
+    const parsed = JSON.parse(str(fd, "questions", "[]"));
+    if (Array.isArray(parsed)) questions = parsed.filter((q) => q && typeof q.label === "string").map((q, i) => ({ key: "q" + i, label: String(q.label) }));
+  } catch {
+    questions = [];
+  }
+  const token = randomUUID().replace(/-/g, "").slice(0, 20);
+  db.prepare("INSERT INTO routing_forms (id, user_id, token, title, description, event_type_id, questions, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)").run(
+    randomUUID(), user.id, token, title, description, eventTypeId, JSON.stringify(questions), new Date().toISOString()
+  );
+  revalidatePath("/dashboard/routing");
+  redirect("/dashboard/routing?created=" + token);
+}
+
+export async function deleteRoutingFormAction(fd: FormData) {
+  const user = await requireUser();
+  db.prepare("DELETE FROM routing_forms WHERE id = ? AND user_id = ?").run(str(fd, "id"), user.id);
+  revalidatePath("/dashboard/routing");
+  redirect("/dashboard/routing");
+}
+
+export async function submitRoutingFormAction(fd: FormData) {
+  const token = str(fd, "token");
+  const name = str(fd, "name");
+  const email = str(fd, "email");
+  const form = db
+    .prepare("SELECT f.id, f.questions, f.event_type_id, u.username, e.slug FROM routing_forms f JOIN users u ON u.id = f.user_id JOIN event_types e ON e.id = f.event_type_id WHERE f.token = ?")
+    .get(token) as { id: string; questions: string; event_type_id: string; username: string; slug: string } | undefined;
+  if (!form) redirect("/");
+  if (!name || !email) redirect("/r/" + token + "?error=missing");
+  const answers: Record<string, string> = {};
+  let questions: { key: string; label: string }[] = [];
+  try {
+    questions = JSON.parse(form.questions || "[]");
+  } catch {
+    questions = [];
+  }
+  for (const q of questions) answers[q.label] = str(fd, q.key);
+  db.prepare("INSERT INTO routing_submissions (id, form_id, name, email, answers, created_at) VALUES (?, ?, ?, ?, ?, ?)").run(
+    randomUUID(), form.id, name, email, JSON.stringify(answers), new Date().toISOString()
+  );
+  const note = Object.entries(answers).filter(([, v]) => v).map(([k, v]) => k + ": " + v).join("\n");
+  const qs = new URLSearchParams({ name, email, notes: note });
+  redirect("/" + form.username + "/" + form.slug + "?" + qs.toString());
+}

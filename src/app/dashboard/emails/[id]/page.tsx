@@ -16,10 +16,10 @@ export default async function EmailDetailPage({ params }: { params: Promise<{ id
 
   return (
     <div className="max-w-3xl">
-      <Link href="/dashboard/emails" className="text-[13px] font-medium text-muted hover:text-navy">‹ Emails</Link>
-      <h1 className="mt-3 text-[20px] font-semibold tracking-tight">{e.subject}</h1>
+      <Link href="/dashboard/emails" className="text-[13px] font-medium text-muted hover:text-ink">‹ Emails</Link>
+      <h1 className="mt-3 text-[24px] font-semibold tracking-[-0.02em]">{e.subject}</h1>
       <p className="mt-1 text-[13px] text-muted">
-        To {e.to_email} · {e.kind} · <span className="uppercase">{e.status}</span>
+        To {e.to_email} · {e.kind.replace(/_/g, " ")} · <span className="uppercase">{e.status}</span>
         {e.last_error && <span className="text-red-600"> · {e.last_error}</span>}
       </p>
       <div className="mt-6 overflow-hidden rounded-xl border border-line bg-white">

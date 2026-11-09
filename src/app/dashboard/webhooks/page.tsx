@@ -2,6 +2,7 @@ import { getCurrentUser } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { WEBHOOK_EVENTS } from "@/lib/integrations/engine";
 import { createWebhookAction, deleteWebhookAction, retryDeliveriesAction } from "@/lib/actions";
+import { PageHeader, Notice } from "@/components/PageHeader";
 
 type Endpoint = { id: string; url: string; secret: string; events: string; active: number; created_at: string };
 type Delivery = { id: string; event: string; status: string; attempts: number; response_code: number | null; last_error: string | null; created_at: string; url: string };
@@ -19,21 +20,15 @@ export default async function WebhooksPage({ searchParams }: { searchParams: Pro
 
   return (
     <div className="max-w-4xl">
-      <div className="flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <h1 className="text-[26px] font-semibold tracking-tight">Webhooks</h1>
-          <p className="mt-1 text-[14px] text-muted">
-            POST booking events to any URL, signed with HMAC-SHA256. Works with Zapier, Make, n8n and your own backend.
-          </p>
-        </div>
+      <PageHeader title="Webhooks" subtitle="POST booking events to any URL, signed with HMAC-SHA256. Works with Zapier, Make, n8n and your own backend.">
         <form action={retryDeliveriesAction}>
-          <button className="rounded-lg border border-line bg-white px-4 py-2.5 text-[12.5px] font-medium">Retry failed</button>
+          <button className="btn btn-outline">Retry failed</button>
         </form>
-      </div>
+      </PageHeader>
 
-      {created && <div className="mt-4 rounded-lg bg-green-50 px-3 py-2 text-[13px] text-green-800">Endpoint created. Copy the signing secret now.</div>}
-      {retried && <div className="mt-4 rounded-lg bg-green-50 px-3 py-2 text-[13px] text-green-800">Retries processed.</div>}
-      {error && <div className="mt-4 rounded-lg bg-red-50 px-3 py-2 text-[13px] text-red-700">Enter a valid http(s) URL.</div>}
+      {created && <Notice>Endpoint created. Copy the signing secret now.</Notice>}
+      {retried && <Notice>Retries processed.</Notice>}
+      {error && <Notice kind="error">Enter a valid http(s) URL.</Notice>}
 
       <form action={createWebhookAction} className="mt-5 rounded-xl border border-line bg-white p-5">
         <h2 className="text-[14px] font-semibold">Add endpoint</h2>

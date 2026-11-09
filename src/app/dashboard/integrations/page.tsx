@@ -4,6 +4,7 @@ import { db } from "@/lib/db";
 import { CATEGORIES, INTEGRATIONS } from "@/lib/integrations/catalog";
 import { connectIntegrationAction, disconnectIntegrationAction, googleDemoConnectAction, googleSyncAction, googleDisconnectAction } from "@/lib/actions";
 import { connectionStatus, isGoogleConfigured } from "@/lib/google";
+import { PageHeader } from "@/components/PageHeader";
 
 const AUTH_LABEL: Record<string, string> = {
   oauth: "OAuth",
@@ -38,10 +39,10 @@ export default async function IntegrationsPage({
 
   return (
     <div className="max-w-5xl">
-      <h1 className="text-[26px] font-semibold tracking-tight">Integrations</h1>
-      <p className="mt-1 text-[14px] text-muted">
-        Connect calendars, video, CRM, payments, marketing and automation tools. {INTEGRATIONS.length} integrations available.
-      </p>
+      <PageHeader
+        title="Integrations"
+        subtitle={"Connect calendars, video, CRM, payments, marketing and automation tools. " + INTEGRATIONS.length + " integrations available."}
+      />
       {google && (
         <div className={"mt-4 rounded-lg px-3 py-2 text-[13px] " + (google.includes("error") || google === "denied" || google === "state" || google === "missing" ? "bg-red-50 text-red-700" : "bg-green-50 text-green-800")}>
           {google === "demo" && "Google Calendar connected in demo mode — synthetic busy blocks now block booking slots."}

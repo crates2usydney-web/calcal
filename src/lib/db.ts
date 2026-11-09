@@ -240,6 +240,47 @@ function init(): DatabaseSync {
       used_at TEXT,
       created_at TEXT NOT NULL
     );
+    CREATE TABLE IF NOT EXISTS polls (
+      id TEXT PRIMARY KEY,
+      user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      token TEXT NOT NULL UNIQUE,
+      title TEXT NOT NULL,
+      description TEXT NOT NULL DEFAULT '',
+      duration INTEGER NOT NULL DEFAULT 30,
+      created_at TEXT NOT NULL
+    );
+    CREATE TABLE IF NOT EXISTS poll_options (
+      id TEXT PRIMARY KEY,
+      poll_id TEXT NOT NULL REFERENCES polls(id) ON DELETE CASCADE,
+      start_utc TEXT NOT NULL,
+      position INTEGER NOT NULL DEFAULT 0
+    );
+    CREATE TABLE IF NOT EXISTS poll_votes (
+      id TEXT PRIMARY KEY,
+      poll_id TEXT NOT NULL REFERENCES polls(id) ON DELETE CASCADE,
+      option_id TEXT NOT NULL REFERENCES poll_options(id) ON DELETE CASCADE,
+      name TEXT NOT NULL,
+      email TEXT NOT NULL,
+      created_at TEXT NOT NULL
+    );
+    CREATE TABLE IF NOT EXISTS routing_forms (
+      id TEXT PRIMARY KEY,
+      user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      token TEXT NOT NULL UNIQUE,
+      title TEXT NOT NULL,
+      description TEXT NOT NULL DEFAULT '',
+      event_type_id TEXT NOT NULL REFERENCES event_types(id) ON DELETE CASCADE,
+      questions TEXT NOT NULL DEFAULT '[]',
+      created_at TEXT NOT NULL
+    );
+    CREATE TABLE IF NOT EXISTS routing_submissions (
+      id TEXT PRIMARY KEY,
+      form_id TEXT NOT NULL REFERENCES routing_forms(id) ON DELETE CASCADE,
+      name TEXT NOT NULL,
+      email TEXT NOT NULL,
+      answers TEXT NOT NULL DEFAULT '{}',
+      created_at TEXT NOT NULL
+    );
     CREATE TABLE IF NOT EXISTS api_keys (
       id TEXT PRIMARY KEY,
       user_id TEXT NOT NULL,

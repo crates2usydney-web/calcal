@@ -25,7 +25,7 @@ export default async function BookingsPage({ searchParams }: { searchParams: Pro
 
   const rows = db
     .prepare(
-      "SELECT b.id, b.invitee_name, b.invitee_email, b.start_utc, b.end_utc, b.status, e.title, e.duration, b.amount_cents, b.currency, b.payment_status " +
+      "SELECT b.id, b.invitee_name, b.invitee_email, b.start_utc, b.end_utc, b.status, e.title, e.duration, b.amount_cents, e.currency AS currency, b.payment_status " +
       "FROM bookings b JOIN event_types e ON e.id = b.event_type_id WHERE b.host_id = ? ORDER BY b.start_utc DESC LIMIT 200"
     )
     .all(user.id) as Row[];
