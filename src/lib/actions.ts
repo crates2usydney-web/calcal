@@ -399,3 +399,107 @@ export async function updateProfileAction(fd: FormData) {
 export async function updateEventAvailabilityForm(fd: FormData) {
   await saveAvailabilityAction(fd);
 }
+
+export async function toggleEventTypeAction(fd: FormData) {
+  const user = await requireUser();
+  const id = str(fd, "id");
+  const next = str(fd, "active") === "1" ? 1 : 0;
+  db.prepare("UPDATE event_types SET active = ? WHERE id = ? AND user_id = ?").run(next, id, user.id);
+  revalidatePath("/dashboard");
+  redirect("/dashboard");
+}
+
+export async function duplicateEventTypeAction(fd: FormData) {
+  const user = await requireUser();
+  const id = str(fd, "id");
+  const src = db.prepare("SELECT * FROM event_types WHERE id = ? AND user_id = ?").get(id, user.id) as
+    | { title: string; slug: string; description: string; duration: number; location: string; color: string; assignment: string; price_cents: number; currency: string; require_payment: number }
+    | undefined;
+  if (!src) redirect("/dashboard");
+  let slug = src.slug + "-copy";
+  let n = 2;
+  while (db.prepare("SELECT id FROM event_types WHERE user_id = ? AND slug = ?").get(user.id, slug)) {
+    slug = src.slug + "-copy-" + n++;
+  }
+  const newId = randomUUID();
+  db.prepare(
+    "INSERT INTO event_types (id, user_id, title, slug, description, duration, location, color, active, created_at, assignment, price_cents, currency, require_payment) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?, ?, ?, ?)"
+  ).run(newId, user.id, src.title + " (copy)", slug, src.description, src.duration, src.location, src.color, new Date().toISOString(), src.assignment, src.price_cents, src.currency, src.require_payment);
+  const hosts = db.prepare("SELECT user_id, position FROM event_type_hosts WHERE event_type_id = ?").all(id) as { user_id: string; position: number }[];
+  const ins = db.prepare("INSERT OR IGNORE INTO event_type_hosts (event_type_id, user_id, position) VALUES (?, ?, ?)");
+  for (const h of hosts) ins.run(newId, h.user_id, h.position);
+  revalidatePath("/dashboard");
+  redirect("/dashboard/event-types/" + newId);
+}
+
+export async function createSingleUseLinkAction(fd: FormData) {
+  const user = await requireUser();
+  const eventTypeId = str(fd, "event_type_id");
+  const days = Math.max(1, Math.min(90, Number(str(fd, "days", "7")) || 7));
+  const ev = db.prepare("SELECT id FROM event_types WHERE id = ? AND user_id = ?").get(eventTypeId, user.id);
+  if (!ev) redirect("/dashboard?link_error=event");
+  const token = randomUUID().replace(/-/g, "").slice(0, 20);
+  const expires = new Date(Date.now() + days * 86400000).toISOString();
+  db.prepare("INSERT INTO single_use_links (id, user_id, event_type_id, token, expires_at, created_at) VALUES (?, ?, ?, ?, ?, ?)").run(
+    randomUUID(), user.id, eventTypeId, token, expires, new Date().toISOString()
+  );
+  revalidatePath("/dashboard");
+  redirect("/dashboard?link_created=" + token);
+}
+
+export async function revokeSingleUseLinkAction(fd: FormData) {
+  const user = await requireUser();
+  db.prepare("DELETE FROM single_use_links WHERE id = ? AND user_id = ?").run(str(fd, "id"), user.id);
+  revalidatePath("/dashboard");
+  redirect("/dashboard");
+}
+
+export async function saveScheduleAction(fd: FormData) {
+  const user = await requireUser();
+  let parsed: { d: number; enabled: boolean; start: string; end: string }[] = [];
+  try {
+    parsed = JSON.parse(str(fd, "schedule", "[]"));
+  } catch {
+    parsed = [];
+  }
+  const toMin = (s: string) => {
+    const [h, m] = s.split(":").map(Number);
+    return (h || 0) * 60 + (m || 0);
+  };
+  db.prepare("DELETE FROM availability WHERE user_id = ?").run(user.id);
+  const ins = db.prepare("INSERT INTO availability (user_id, weekday, start_min, end_min) VALUES (?, ?, ?, ?)");
+  for (const row of parsed) {
+    if (!row || !row.enabled) continue;
+    const d = Number(row.d);
+    if (!Number.isInteger(d) || d < 0 || d > 6) continue;
+    const start = toMin(row.start || "09:00");
+    const end = toMin(row.end || "17:00");
+    if (end > start) ins.run(user.id, d, start, end);
+  }
+  revalidatePath("/dashboard/availability");
+  redirect("/dashboard/availability?saved=1");
+}
+
+export async function updateSettingsAction(fd: FormData) {
+  const user = await requireUser();
+  const name = str(fd, "name") || user.name;
+  const username = slugify(str(fd, "username") || user.username);
+  const welcome = str(fd, "welcome_message");
+  const timezone = str(fd, "timezone") || user.timezone;
+  const password = str(fd, "new_password");
+  const current = str(fd, "current_password");
+
+  const taken = db.prepare("SELECT id FROM users WHERE username = ? AND id != ?").get(username, user.id);
+  if (taken) redirect("/dashboard/settings?error=username");
+
+  if (password) {
+    if (password.length < 6) redirect("/dashboard/settings?error=password");
+    const row = db.prepare("SELECT password_hash FROM users WHERE id = ?").get(user.id) as { password_hash: string };
+    if (!verifyPassword(current, row.password_hash)) redirect("/dashboard/settings?error=current");
+    db.prepare("UPDATE users SET password_hash = ? WHERE id = ?").run(hashPasswordSync(password), user.id);
+  }
+
+  db.prepare("UPDATE users SET name = ?, username = ?, welcome_message = ?, timezone = ? WHERE id = ?").run(name, username, welcome, timezone, user.id);
+  revalidatePath("/dashboard/settings");
+  redirect("/dashboard/settings?saved=1");
+}
